@@ -16,7 +16,7 @@ class PersonaBuilder:
 
     @classmethod
     def build(cls, mode: str = "chat") -> str:
-        base = cls.CORE_PERSONA
+        base = self.CORE_PERSONA
         if mode == "morning":
             return base + "\n\n" + cls.DIET_MODE
         elif mode == "evening":
