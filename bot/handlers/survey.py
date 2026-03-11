@@ -251,9 +251,26 @@ async def s_meal_plan(cb: types.CallbackQuery, state: FSMContext):
 
 @router.message(Survey.schedule)
 async def s_schedule(m: types.Message, state: FSMContext):
-    parts = m.text.strip().split()
-    wake = parts[0] if len(parts) >= 1 else "07:00"
-    bed  = parts[1] if len(parts) >= 2 else "23:00"
+    import re
+    times = re.findall(r'\d{1,2}[:\.]\d{2}', m.text)
+    if len(times) >= 2:
+        wake = times[0].replace(".", ":")
+        bed  = times[1].replace(".", ":")
+    elif len(times) == 1:
+        wake = times[0].replace(".", ":")
+        bed  = "23:00"
+    else:
+        await m.answer("Не понял формат. Напиши время через пробел, например: `07:00 23:30`", parse_mode="Markdown")
+        return
+    def fix(t):
+        h, mn = t.split(":")
+        return f"{int(h):02d}:{int(mn):02d}"
+    try:
+        wake = fix(wake)
+        bed  = fix(bed)
+    except Exception:
+        await m.answer("Не понял формат. Напиши: `07:00 23:30`", parse_mode="Markdown")
+        return
     await state.update_data(wake_up_time=wake, bedtime=bed)
     await state.set_state(Survey.hobby)
     await ask(m,
