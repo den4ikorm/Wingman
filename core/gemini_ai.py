@@ -15,7 +15,7 @@ class GeminiEngine:
     def __init__(self, user_profile: dict):
         self.profile = user_profile
         self.client = genai.Client(api_key=os.getenv("GEMINI_KEY"))
-        self.persona = PersonaBuilder(user_profile)
+        self.persona = PersonaBuilder()
 
     def _call(self, contents: str, mode: str) -> str:
         system_prompt = self.persona.build(mode)
