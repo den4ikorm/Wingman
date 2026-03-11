@@ -35,7 +35,7 @@ async def send_morning_dashboard(user_id: int):
 
         # Кнопка открытия Mini App
         # После деплоя замени URL на реальный
-        webapp_url = f"https://YOUR_DOMAIN/dashboard/{user_id}"
+        webapp_url = f"https://bot-production-55d2.up.railway.app/dashboard/{user_id}"
 
         builder = InlineKeyboardBuilder()
         builder.row(
