@@ -29,6 +29,7 @@ class Survey(StatesGroup):
     budget      = State()
     meal_plan   = State()
     schedule    = State()  # время подъёма и сна
+    timezone    = State()
     hobby       = State()
 
 
@@ -272,9 +273,31 @@ async def s_schedule(m: types.Message, state: FSMContext):
         await m.answer("Не понял формат. Напиши: `07:00 23:30`", parse_mode="Markdown")
         return
     await state.update_data(wake_up_time=wake, bedtime=bed)
+    await state.set_state(Survey.timezone)
+    await ask(m,
+        "*Шаг 12 из 13*\n\nВ каком городе ты живёшь?\n"
+        "Напиши название города, например: `Москва`, `Хабаровск`, `Новосибирск`"
+    )
+
+
+@router.message(Survey.timezone)
+async def s_timezone(m: types.Message, state: FSMContext):
+    city = m.text.strip()
+    # Маппинг популярных городов России на UTC offset
+    tz_map = {
+        "москва": 3, "санкт-петербург": 3, "питер": 3, "спб": 3,
+        "екатеринбург": 5, "новосибирск": 7, "красноярск": 7,
+        "иркутск": 8, "якутск": 9, "хабаровск": 10, "владивосток": 10,
+        "магадан": 11, "камчатка": 12, "петропавловск": 12,
+        "калининград": 2, "самара": 4, "уфа": 5, "пермь": 5,
+        "челябинск": 5, "омск": 6, "томск": 7, "кемерово": 7,
+        "барнаул": 7, "чита": 9, "благовещенск": 9, "сахалин": 11,
+    }
+    utc_offset = tz_map.get(city.lower(), 3)  # default Москва
+    await state.update_data(city=city, utc_offset=utc_offset)
     await state.set_state(Survey.hobby)
     await ask(m,
-        "*Шаг 12 из 12 — последний!*\n\n"
+        f"*Последний шаг — 13 из 13!*\n\n"
         "Расскажи немного о себе — хобби, работа, образ жизни?\n"
         "_(Это поможет сделать план ближе к реальности)_"
     )

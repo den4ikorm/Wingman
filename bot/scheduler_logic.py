@@ -148,13 +148,19 @@ async def send_evening_prompt(user_id: int):
 # ── НАСТРОЙКА JOB'ОВ ───────────────────────────────────────────────────────
 
 def setup_user_jobs(user_id: int, wake_up_time: str, bedtime: str):
+    profile = MemoryManager(user_id).get_profile()
+    utc_offset = profile.get("utc_offset", 3) if profile else 3
     _user_registry[user_id] = {
         "wake_up_time": wake_up_time,
-        "bedtime": bedtime
+        "bedtime": bedtime,
+        "utc_offset": utc_offset,
     }
 
     # Утро: время подъёма + 15 минут
+    utc_offset = _user_registry.get(user_id, {}).get("utc_offset", 3)
     wake_h, wake_m = map(int, wake_up_time.split(":"))
+    # Переводим локальное время в UTC
+    wake_h = (wake_h - utc_offset) % 24
     wake_dt = datetime.now().replace(hour=wake_h, minute=wake_m, second=0)
     morning_dt = wake_dt + timedelta(minutes=15)
 
@@ -200,6 +206,7 @@ def setup_user_jobs(user_id: int, wake_up_time: str, bedtime: str):
 
     # Вечер: за 2 часа до сна
     bed_h, bed_m = map(int, bedtime.split(":"))
+    bed_h = (bed_h - utc_offset) % 24
     bed_dt = datetime.now().replace(hour=bed_h, minute=bed_m)
     eve_dt = bed_dt - timedelta(hours=2)
 
