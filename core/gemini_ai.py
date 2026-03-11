@@ -18,7 +18,7 @@ class GeminiEngine:
         self.persona = PersonaBuilder()
 
     def _call(self, contents: str, mode: str) -> str:
-        system_prompt = self.persona.build(mode, self.profile)
+        system_prompt = self.persona.build(mode)
         response = self.client.models.generate_content(
             model=MODEL_NAME,
             contents=contents,
