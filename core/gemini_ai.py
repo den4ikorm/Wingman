@@ -1,52 +1,101 @@
 """
 core/gemini_ai.py
-GeminiEngine — использует PersonaBuilder для динамической сборки промптов
+GeminiEngine v3 — ротация ключей, история чата, рекомендации
 """
 
 import os
 import re
+import logging
 from google import genai
 from core.persona import PersonaBuilder
+from core.key_manager import KeyManager
 
 MODEL_NAME = "gemini-2.5-flash"
+logger = logging.getLogger(__name__)
 
 
 class GeminiEngine:
     def __init__(self, user_profile: dict):
         self.profile = user_profile
-        self.client = genai.Client(api_key=os.getenv("GEMINI_KEY"))
-        self.persona = PersonaBuilder()
+        self.persona = PersonaBuilder(user_profile)
+        self._key_manager = KeyManager()
+        self._make_client()
 
-    def _call(self, contents: str, mode: str) -> str:
+    def _make_client(self):
+        self.client = genai.Client(api_key=self._key_manager.get_key())
+
+    def _call(self, contents, mode: str, max_retries: int = 3) -> str:
         system_prompt = self.persona.build(mode)
-        response = self.client.models.generate_content(
-            model=MODEL_NAME,
-            contents=contents,
-            config={"system_instruction": system_prompt},
-        )
-        return response.text.strip()
+        for attempt in range(max_retries):
+            try:
+                response = self.client.models.generate_content(
+                    model=MODEL_NAME,
+                    contents=contents,
+                    config={"system_instruction": system_prompt},
+                )
+                return response.text.strip()
+            except Exception as e:
+                err = str(e)
+                if "429" in err or "quota" in err.lower() or "rate" in err.lower():
+                    logger.warning(f"Rate limit на ключе {attempt+1}, ротирую...")
+                    self._key_manager.rotate()
+                    self._make_client()
+                else:
+                    logger.error(f"Gemini error: {e}")
+                    raise
+        raise RuntimeError("Все ключи исчерпали лимит")
+
+    # ── ЧАТ С ИСТОРИЕЙ ────────────────────────────────────────────
+
+    def chat(self, user_message: str, history: list[dict] = None) -> str:
+        """
+        history = [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
+        """
+        if history:
+            # Строим мультиходовой контекст
+            context_parts = []
+            for msg in history[-20:]:  # последние 20 сообщений
+                role = "Пользователь" if msg["role"] == "user" else "Wingman"
+                context_parts.append(f"{role}: {msg['content']}")
+            context = "\n".join(context_parts)
+            contents = f"История диалога:\n{context}\n\nПользователь: {user_message}"
+        else:
+            contents = user_message
+        return self._call(contents, mode="chat")
 
     # ── УТРО ──────────────────────────────────────────────────────
 
-    def get_dashboard_content(self, is_first_run: bool = False) -> str:
+    def get_dashboard_content(self, is_first_run: bool = False,
+                               yesterday_summary: str = "",
+                               week_summary: str = "") -> str:
+        p = self.profile
+        context = ""
+        if yesterday_summary:
+            context += f"\nВчера: {yesterday_summary}"
+        if week_summary:
+            context += f"\nИтоги недели: {week_summary}"
+
         prompt = (
-            f"Составь план дня. Бюджет: {self.profile.get('budget')} руб. "
-            f"Цель: {self.profile.get('goal')}."
+            f"Составь план дня. Бюджет: {p.get('budget')} руб. "
+            f"Цель: {p.get('goal')}.{context}"
         )
         if is_first_run:
-            prompt += " Первый запуск — начни с тёплого приветствия в tab1."
+            prompt += " Первый запуск — начни с тёплого приветствия."
         raw = self._call(prompt, mode="morning")
         return raw.replace("```html", "").replace("```", "").strip()
 
     def get_task_list(self, html_content: str) -> list[str]:
         if not html_content:
             return []
-        raw = self.client.models.generate_content(
-            model=MODEL_NAME,
-            contents=f"Извлеки задачи из HTML через точку с запятой: {html_content}",
-            config={"system_instruction": "Ты технический парсер. Только список задач через ';'. Без лишнего."},
-        ).text
-        return [t.strip() for t in raw.split(";") if len(t.strip()) > 2]
+        try:
+            raw = self.client.models.generate_content(
+                model=MODEL_NAME,
+                contents=f"Извлеки задачи из HTML через точку с запятой: {html_content}",
+                config={"system_instruction": "Ты технический парсер. Только список задач через ';'. Без лишнего."},
+            ).text
+            return [t.strip() for t in raw.split(";") if len(t.strip()) > 2]
+        except Exception:
+            return []
 
     # ── ВЕЧЕР ──────────────────────────────────────────────────────
 
@@ -54,52 +103,91 @@ class GeminiEngine:
         contents = f"План дня:\n{plan_text}\n\nОтчёт пользователя:\n{feedback_text}"
         return self._call(contents, mode="evening")
 
-    # ── ЧАТ ────────────────────────────────────────────────────────
+    def generate_day_summary(self, feedback_text: str, tasks_results: str) -> str:
+        """Краткий дайджест дня для хранения"""
+        prompt = (
+            f"Сделай краткий дайджест дня (2-3 предложения) на основе:\n"
+            f"Задачи: {tasks_results}\n"
+            f"Фидбек: {feedback_text}\n\n"
+            "Формат: факты без воды. Это будет использоваться как контекст завтра."
+        )
+        try:
+            return self._call(prompt, mode="evening")
+        except Exception:
+            return feedback_text[:200]
 
-    def chat(self, user_message: str) -> str:
-        return self._call(user_message, mode="chat")
+    # ── НЕДЕЛЬНЫЙ АНАЛИЗ ───────────────────────────────────────────
 
-    # ── ПАРСИНГ МЕТА ───────────────────────────────────────────────
+    def generate_week_summary(self, day_summaries: list[dict]) -> str:
+        days_text = "\n".join(
+            f"{d['date']} ({d.get('mood','?')}): {d['summary']}"
+            for d in day_summaries
+        )
+        prompt = f"Вот итоги 7 дней:\n{days_text}\n\nСделай недельный анализ."
+        return self._call(prompt, mode="weekly")
 
-    @staticmethod
-    def extract_vibe(text: str) -> str | None:
-        """Извлекает предложенный vibe из ответа вечернего анализа"""
-        for vibe in ["spark", "observer", "twilight"]:
-            if vibe in text.lower():
-                return vibe
-        return None
+    # ── РЕКОМЕНДАЦИИ (вечер) ───────────────────────────────────────
 
-    @staticmethod
-    def extract_mood(text: str) -> str | None:
-        """Извлекает [MOOD:state] из ответа"""
-        match = re.search(r"\[MOOD:(upbeat|neutral|low)\]", text)
-        return match.group(1) if match else None
+    def get_evening_recommendations(self, mood: str, stop_list: list) -> str:
+        p = self.profile
+        stop = ", ".join(stop_list[-20:]) if stop_list else "нет"
+        prompt = f"""
+Составь вечерние рекомендации для {p.get('name', 'пользователя')}.
+Настроение сейчас: {mood}
+Хобби и интересы: {p.get('hobby', 'не указаны')}
+Уже видел/слышал (не предлагай): {stop}
 
-    # ── ДИЕТА ──────────────────────────────────────────────────────────────
+Формат ответа:
+
+🎬 *Фильмы на вечер* (5 штук — 2 мейнстрим, 2 пореже, 1 редкий бриллиант):
+1. Название (год) — одна строка почему подойдёт
+
+📺 *Мультфильм/Сериал* (3 штуки — 1 мейнстрим, 1 пореже, 1 бриллиант):
+1. Название — одна строка
+
+📚 *Книга*:
+Название — автор — одна строка почему
+
+🎵 *Плейлист 15 треков* (по 3 в каждой категории):
+Современные популярные:
+— Исполнитель — Трек
+
+Ретро 90-2000е:
+— Исполнитель — Трек
+
+2000-2020:
+— Исполнитель — Трек
+
+Классика советская 50-90е:
+— Исполнитель — Трек
+
+Редкие (минимум 3):
+— Исполнитель — Трек
+
+Приоритет: русскоязычная музыка. Учитывай настроение {mood}.
+"""
+        return self._call(prompt, mode="recommendation")
+
+    # ── ДИЕТА ──────────────────────────────────────────────────────
 
     def generate_weekly_diet(self) -> str:
         p = self.profile
         prompt = f"""
-Составь персональную диету на 7 дней для человека:
-— Имя: {p.get('name', 'пользователь')}
-— Возраст: {p.get('age')} лет, пол: {p.get('gender')}
+Составь персональную диету на 7 дней:
+— Имя: {p.get('name')}, {p.get('age')} лет, {p.get('gender')}
 — Вес: {p.get('weight')} кг, рост: {p.get('height')} см
-— Цель: {p.get('goal')}
-— Активность: {p.get('activity')}
-— Ограничения: {p.get('restrictions')}
-— Не любит: {p.get('dislikes')}
-— Бюджет/день: {p.get('budget')} руб.
-— График питания: {p.get('meal_plan')}
+— Цель: {p.get('goal')}, активность: {p.get('activity')}
+— Ограничения: {p.get('restrictions')}, не любит: {p.get('dislikes')}
+— Бюджет/день: {p.get('budget')} руб, график: {p.get('meal_plan')}
 
-Формат ответа — строго Markdown:
+Формат — Markdown:
 *День 1*
 🌅 Завтрак: ...
 ☀️ Обед: ...
 🌙 Ужин: ...
-_(перекусы если нужны)_
+_(перекусы)_
 
-И так для каждого из 7 дней.
-В конце — краткий комментарий по КБЖУ и логике диеты (3-4 предложения).
+И так для каждого дня. В конце — краткий комментарий по КБЖУ.
 """
         response = self.client.models.generate_content(
             model=MODEL_NAME,
@@ -108,34 +196,107 @@ _(перекусы если нужны)_
         )
         return response.text.strip()
 
-    def generate_shopping_list(self, diet_text: str) -> str:
+    def generate_shopping_list_structured(self, diet_text: str) -> list[dict]:
+        """Возвращает структурированный список для БД"""
         prompt = f"""
-На основе этой диеты составь список покупок на неделю:
+На основе диеты составь список покупок. Отвечай ТОЛЬКО JSON-массивом:
+[{{"item": "Куриное филе", "category": "Мясо и рыба", "amount": "1.5 кг"}}, ...]
 
+Категории: Мясо и рыба, Овощи и зелень, Фрукты, Молочные продукты, Крупы и бобовые, Хлеб и выпечка, Прочее
+
+Диета:
 {diet_text}
+"""
+        try:
+            raw = self.client.models.generate_content(
+                model=MODEL_NAME,
+                contents=prompt,
+                config={"system_instruction": "Ты JSON-генератор. Только валидный JSON-массив без пояснений."},
+            ).text
+            raw = raw.replace("```json", "").replace("```", "").strip()
+            import json
+            return json.loads(raw)
+        except Exception as e:
+            logger.error(f"Shopping list parse error: {e}")
+            return []
 
-Формат — строго Markdown, сгруппируй по категориям:
+    def generate_shopping_list(self, diet_text: str) -> str:
+        """Текстовый вариант для отправки в чат"""
+        prompt = f"""
+На основе диеты составь список покупок на неделю.
+Формат Markdown, по категориям с количеством:
 *🥩 Мясо и рыба*
 — ...
 
-*🥬 Овощи и зелень*
-— ...
+Диета:
+{diet_text}
 
-*🧀 Молочные продукты*
-— ...
-
-*🌾 Крупы и бобовые*
-— ...
-
-*🫙 Прочее*
-— ...
-
-Указывай примерное количество (кг, г, шт).
-В конце — примерная общая стоимость в рублях.
+В конце примерная стоимость в рублях.
 """
         response = self.client.models.generate_content(
             model=MODEL_NAME,
             contents=prompt,
-            config={"system_instruction": "Ты диетолог-нутрициолог. Составляй точные списки покупок."},
+            config={"system_instruction": "Ты диетолог. Составляй точные списки покупок."},
         )
         return response.text.strip()
+
+    # ── СЮРПРИЗ ────────────────────────────────────────────────────
+
+    def get_surprise(self) -> str:
+        import random
+        surprise_types = [
+            "интересный факт о питании или здоровье",
+            "мотивирующую цитату великого человека",
+            "необычный лайфхак для продуктивности",
+            "короткую медитативную практику на 2 минуты",
+            "рекомендацию подкаста или видео по интересам пользователя",
+        ]
+        surprise_type = random.choice(surprise_types)
+        hobby = self.profile.get("hobby", "")
+        prompt = f"Придумай {surprise_type}. Учитывай хобби: {hobby}. Формат: короткий пост до 150 слов с эмодзи."
+        return self._call(prompt, mode="chat")
+
+    # ── АНАЛИЗ ХОЛОДИЛЬНИКА ────────────────────────────────────────
+
+    def fridge_to_recipes(self, ingredients: str) -> str:
+        p = self.profile
+        prompt = f"""
+У пользователя есть: {ingredients}
+
+Предложи 3 рецепта которые можно приготовить из этих продуктов.
+Учитывай цель ({p.get('goal')}) и ограничения ({p.get('restrictions')}).
+
+Для каждого рецепта:
+🍽 Название
+⏱ Время: X мин
+📊 КБЖУ: ~X ккал
+📝 Ингредиенты: ...
+👨‍🍳 Приготовление: (3-4 шага)
+"""
+        return self._call(prompt, mode="morning")
+
+    # ── ТРЕКЕР ВЕСА ────────────────────────────────────────────────
+
+    def analyze_weight_progress(self, history: list[dict], goal: str) -> str:
+        if not history:
+            return "Пока нет данных о весе. Записывай вес командой /weight 78.5"
+        points = "\n".join(f"{h['date']}: {h['weight']} кг" for h in history)
+        prompt = f"Цель: {goal}\nИстория веса:\n{points}\n\nДай краткий анализ прогресса и рекомендацию."
+        return self._call(prompt, mode="chat")
+
+    # ── ПАРСИНГ МЕТА ───────────────────────────────────────────────
+
+    @staticmethod
+    def extract_vibe(text: str) -> str | None:
+        match = re.search(r"\[VIBE:(spark|observer|twilight)\]", text)
+        if match:
+            return match.group(1)
+        for vibe in ["spark", "observer", "twilight"]:
+            if vibe in text.lower():
+                return vibe
+        return None
+
+    @staticmethod
+    def extract_mood(text: str) -> str | None:
+        match = re.search(r"\[MOOD:(upbeat|neutral|low)\]", text)
+        return match.group(1) if match else None

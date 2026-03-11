@@ -1,40 +1,129 @@
 """
 core/database.py
-MemoryManager v2 — расширен для Wingman (emotional_state, stop_list, memory_light)
+MemoryManager v3 — SQLite с атомарной записью (threading.Lock)
++ chat_log, day_summary, week_summary, shopping, weight, feedback
 """
 
 import json
+import sqlite3
 import os
-from datetime import datetime
+import logging
+import threading
+from datetime import datetime, date, timedelta
+
+logger = logging.getLogger(__name__)
+
+DB_PATH = os.getenv("DB_PATH", "./data/wingman.db")
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
+_lock = threading.Lock()
+
+
+def get_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")   # атомарность при crash
+    conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
+
+
+def init_db():
+    with _lock:
+        with get_conn() as conn:
+            conn.executescript("""
+            CREATE TABLE IF NOT EXISTS profiles (
+                user_id    INTEGER PRIMARY KEY,
+                data       TEXT NOT NULL,
+                updated_at TEXT
+            );
+            CREATE TABLE IF NOT EXISTS chat_log (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                role       TEXT NOT NULL,
+                message    TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS day_summaries (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                day_date   TEXT NOT NULL,
+                summary    TEXT NOT NULL,
+                mood       TEXT,
+                created_at TEXT NOT NULL,
+                UNIQUE(user_id, day_date)
+            );
+            CREATE TABLE IF NOT EXISTS week_summaries (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                week_start TEXT NOT NULL,
+                summary    TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(user_id, week_start)
+            );
+            CREATE TABLE IF NOT EXISTS shopping_list (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                item       TEXT NOT NULL,
+                category   TEXT,
+                checked    INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS weight_log (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                weight     REAL NOT NULL,
+                logged_at  TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS feedback (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                text       TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            """)
+    logger.info("DB initialized (WAL mode)")
 
 
 class MemoryManager:
     def __init__(self, user_id: int):
         self.user_id = user_id
-        base_dir = os.getenv("BASE_DIR", "./data")
-        self.profile_path = os.path.join(base_dir, "profiles", f"{user_id}.json")
-        self.insights_path = os.path.join(base_dir, "insights", f"{user_id}.txt")
 
-        os.makedirs(os.path.dirname(self.profile_path), exist_ok=True)
-        os.makedirs(os.path.dirname(self.insights_path), exist_ok=True)
+    def _now(self) -> str:
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def _exec(self, sql: str, params: tuple = ()):
+        """Атомарное выполнение записи с lock."""
+        with _lock:
+            with get_conn() as conn:
+                conn.execute(sql, params)
+
+    def _fetch_one(self, sql: str, params: tuple = ()):
+        with get_conn() as conn:
+            return conn.execute(sql, params).fetchone()
+
+    def _fetch_all(self, sql: str, params: tuple = ()):
+        with get_conn() as conn:
+            return conn.execute(sql, params).fetchall()
 
     # ── PROFILE ────────────────────────────────────────────────────
 
     def get_profile(self) -> dict:
-        if os.path.exists(self.profile_path):
-            with open(self.profile_path, "r", encoding="utf-8") as f:
-                try:
-                    return json.load(f)
-                except Exception:
-                    return {}
+        row = self._fetch_one("SELECT data FROM profiles WHERE user_id=?", (self.user_id,))
+        if row:
+            try:
+                return json.loads(row["data"])
+            except Exception:
+                return {}
         return {}
 
     def save_profile(self, data: dict):
         existing = self.get_profile()
         existing.update(data)
-        existing["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(self.profile_path, "w", encoding="utf-8") as f:
-            json.dump(existing, f, ensure_ascii=False, indent=4)
+        existing["last_update"] = self._now()
+        self._exec(
+            "INSERT OR REPLACE INTO profiles (user_id, data, updated_at) VALUES (?,?,?)",
+            (self.user_id, json.dumps(existing, ensure_ascii=False), self._now())
+        )
 
     # ── VIBE ───────────────────────────────────────────────────────
 
@@ -45,38 +134,32 @@ class MemoryManager:
         return self.get_profile().get("current_vibe", "observer")
 
     def get_vibe_css(self) -> str:
-        mapping = {
-            "spark":    "style_spark.css",
-            "observer": "style_observer.css",
-            "twilight": "style_twilight.css",
-        }
-        return mapping.get(self.get_vibe(), "style_observer.css")
+        return {"spark": "style_spark.css", "observer": "style_observer.css",
+                "twilight": "style_twilight.css"}.get(self.get_vibe(), "style_observer.css")
 
-    # ── EMOTIONAL STATE ────────────────────────────────────────────
+    # ── MOOD ───────────────────────────────────────────────────────
 
     def set_mood(self, mood: str):
-        """mood: upbeat | neutral | low"""
         self.save_profile({"emotional_state": mood})
 
     def get_mood(self) -> str:
         return self.get_profile().get("emotional_state", "neutral")
 
-    # ── STOP LIST (уже видел/слышал) ───────────────────────────────
+    # ── STOP LIST ──────────────────────────────────────────────────
 
     def add_to_stop_list(self, item: str):
         profile = self.get_profile()
-        stop_list = profile.get("stop_list", [])
-        if item not in stop_list:
-            stop_list.append(item)
-        self.save_profile({"stop_list": stop_list})
+        sl = profile.get("stop_list", [])
+        if item not in sl:
+            sl.append(item)
+        self.save_profile({"stop_list": sl})
 
     def get_stop_list(self) -> list:
         return self.get_profile().get("stop_list", [])
 
-    # ── MEMORY LIGHT (вкусовые предпочтения) ───────────────────────
+    # ── MEMORY LIGHT ───────────────────────────────────────────────
 
     def update_memory_light(self, key: str, value):
-        """Мягкое обновление вкусовых предпочтений"""
         profile = self.get_profile()
         memory = profile.get("memory_light", {})
         memory[key] = value
@@ -104,13 +187,7 @@ class MemoryManager:
     def is_report_pending(self) -> bool:
         return self.get_profile().get("report_pending", False)
 
-    # ── INSIGHTS / FEATURE LOG ─────────────────────────────────────
-
-    def log_insight(self, text: str):
-        with open(self.insights_path, "a", encoding="utf-8") as f:
-            f.write(f"\n--- {datetime.now()} ---\n{text}\n")
-
-    # ── TASKS ──────────────────────────────────────────────────────────────
+    # ── TASKS ──────────────────────────────────────────────────────
 
     def save_tasks(self, tasks: list):
         self.save_profile({"today_tasks": tasks})
@@ -118,7 +195,7 @@ class MemoryManager:
     def get_tasks(self) -> list:
         return self.get_profile().get("today_tasks", [])
 
-    def add_user_task(self, task: str):
+    def add_user_task(self, task: str) -> bool:
         tasks = self.get_tasks()
         if len(tasks) < 10:
             tasks.append(task)
@@ -126,30 +203,151 @@ class MemoryManager:
             return True
         return False
 
-    # ── SURPRISE TOGGLE ────────────────────────────────────────────────────
+    # ── SURPRISE ───────────────────────────────────────────────────
 
     def toggle_surprise(self, enabled: bool):
         self.save_profile({"surprise_enabled": enabled})
 
-    # ── STREAK ─────────────────────────────────────────────────────────────
+    # ── STREAK ─────────────────────────────────────────────────────
 
-    def update_streak(self):
-        from datetime import date
+    def update_streak(self) -> int:
         profile = self.get_profile()
         last = profile.get("last_checkin")
         streak = profile.get("streak", 0)
         today = str(date.today())
-
         if last == today:
             return streak
-        from datetime import date, timedelta
         yesterday = str(date.today() - timedelta(days=1))
-        if last == yesterday:
-            streak += 1
-        else:
-            streak = 1
+        streak = streak + 1 if last == yesterday else 1
         self.save_profile({"streak": streak, "last_checkin": today})
         return streak
 
     def get_streak(self) -> int:
         return self.get_profile().get("streak", 0)
+
+    # ── CHAT LOG ───────────────────────────────────────────────────
+
+    def save_message(self, role: str, message: str):
+        self._exec(
+            "INSERT INTO chat_log (user_id, role, message, created_at) VALUES (?,?,?,?)",
+            (self.user_id, role, message[:1500], self._now())
+        )
+
+    def get_recent_history(self, limit: int = 20) -> list[dict]:
+        rows = self._fetch_all(
+            "SELECT role, message FROM chat_log WHERE user_id=? ORDER BY id DESC LIMIT ?",
+            (self.user_id, limit)
+        )
+        return [{"role": r["role"], "content": r["message"]} for r in reversed(rows)]
+
+    def get_today_messages(self) -> list[dict]:
+        today = str(date.today())
+        rows = self._fetch_all(
+            "SELECT role, message, created_at FROM chat_log WHERE user_id=? AND created_at LIKE ?",
+            (self.user_id, f"{today}%")
+        )
+        return [{"role": r["role"], "content": r["message"], "time": r["created_at"]} for r in rows]
+
+    # ── DAY SUMMARY ────────────────────────────────────────────────
+
+    def save_day_summary(self, summary: str, mood: str = None):
+        today = str(date.today())
+        self._exec(
+            "INSERT OR REPLACE INTO day_summaries "
+            "(user_id, day_date, summary, mood, created_at) VALUES (?,?,?,?,?)",
+            (self.user_id, today, summary, mood, self._now())
+        )
+
+    def get_day_summary(self, day: str = None) -> str:
+        day = day or str(date.today())
+        row = self._fetch_one(
+            "SELECT summary FROM day_summaries WHERE user_id=? AND day_date=?",
+            (self.user_id, day)
+        )
+        return row["summary"] if row else ""
+
+    def get_last_7_summaries(self) -> list[dict]:
+        week_ago = str(date.today() - timedelta(days=7))
+        rows = self._fetch_all(
+            "SELECT day_date, summary, mood FROM day_summaries "
+            "WHERE user_id=? AND day_date >= ? ORDER BY day_date",
+            (self.user_id, week_ago)
+        )
+        return [{"date": r["day_date"], "summary": r["summary"], "mood": r["mood"]} for r in rows]
+
+    # ── WEEK SUMMARY ───────────────────────────────────────────────
+
+    def save_week_summary(self, summary: str):
+        today = date.today()
+        week_start = str(today - timedelta(days=today.weekday()))
+        self._exec(
+            "INSERT OR REPLACE INTO week_summaries "
+            "(user_id, week_start, summary, created_at) VALUES (?,?,?,?)",
+            (self.user_id, week_start, summary, self._now())
+        )
+
+    def get_latest_week_summary(self) -> str:
+        row = self._fetch_one(
+            "SELECT summary FROM week_summaries WHERE user_id=? ORDER BY week_start DESC LIMIT 1",
+            (self.user_id,)
+        )
+        return row["summary"] if row else ""
+
+    # ── SHOPPING LIST ──────────────────────────────────────────────
+
+    def save_shopping_list(self, items: list[dict]):
+        with _lock:
+            with get_conn() as conn:
+                conn.execute("DELETE FROM shopping_list WHERE user_id=?", (self.user_id,))
+                for it in items:
+                    conn.execute(
+                        "INSERT INTO shopping_list (user_id, item, category, checked, created_at) VALUES (?,?,?,0,?)",
+                        (self.user_id, it.get("item", ""), it.get("category", "Прочее"), self._now())
+                    )
+
+    def get_shopping_list(self) -> list[dict]:
+        rows = self._fetch_all(
+            "SELECT id, item, category, checked FROM shopping_list "
+            "WHERE user_id=? ORDER BY category, item",
+            (self.user_id,)
+        )
+        return [{"id": r["id"], "item": r["item"], "category": r["category"],
+                 "checked": bool(r["checked"])} for r in rows]
+
+    def toggle_shopping_item(self, item_id: int):
+        self._exec(
+            "UPDATE shopping_list SET checked = 1 - checked WHERE id=? AND user_id=?",
+            (item_id, self.user_id)
+        )
+
+    # ── WEIGHT LOG ─────────────────────────────────────────────────
+
+    def log_weight(self, weight: float):
+        self._exec(
+            "INSERT INTO weight_log (user_id, weight, logged_at) VALUES (?,?,?)",
+            (self.user_id, weight, self._now())
+        )
+
+    def get_weight_history(self, days: int = 30) -> list[dict]:
+        since = str(date.today() - timedelta(days=days))
+        rows = self._fetch_all(
+            "SELECT weight, logged_at FROM weight_log WHERE user_id=? AND logged_at >= ? ORDER BY logged_at",
+            (self.user_id, since)
+        )
+        return [{"weight": r["weight"], "date": r["logged_at"][:10]} for r in rows]
+
+    # ── FEEDBACK ───────────────────────────────────────────────────
+
+    def save_feedback(self, text: str):
+        self._exec(
+            "INSERT INTO feedback (user_id, text, created_at) VALUES (?,?,?)",
+            (self.user_id, text, self._now())
+        )
+
+    # ── INSIGHTS ───────────────────────────────────────────────────
+
+    def log_insight(self, text: str):
+        path = os.path.join(os.getenv("BASE_DIR", "./data"), "insights", f"{self.user_id}.txt")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(f"\n--- {self._now()} ---\n{text}\n")
