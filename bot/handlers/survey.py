@@ -22,7 +22,7 @@ from plugins.idea_factory import get_main_keyboard
 logger = logging.getLogger(__name__)
 router = Router()
 
-TOTAL_STEPS = 15
+TOTAL_STEPS = 13
 
 
 class Survey(StatesGroup):

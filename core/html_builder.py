@@ -205,12 +205,12 @@ function toggleTask(el) {{
   // Сохраняем прогресс локально
   const tasks = Array.from(document.querySelectorAll('.task-item'))
     .map(t => ({{ text: t.textContent.trim(), done: t.classList.contains('done') }}));
-  localStorage.setItem('tasks_{user_id}', JSON.stringify(tasks));
+  localStorage.setItem('tasks_{self.user_id}', JSON.stringify(tasks));
 }}
 
 // Восстанавливаем состояние задач
 window.onload = () => {{
-  const saved = localStorage.getItem('tasks_{user_id}');
+  const saved = localStorage.getItem('tasks_{self.user_id}');
   if (saved) {{
     const tasks = JSON.parse(saved);
     const items = document.querySelectorAll('.task-item');
