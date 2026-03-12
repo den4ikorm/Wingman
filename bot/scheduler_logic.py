@@ -37,15 +37,22 @@ def build_dashboard_bytes(user_id: int, profile: dict,
     """
     try:
         ai = GeminiEngine(profile)
-        raw = ai.get_dashboard_content(
-            yesterday_summary=yesterday_summary,
-            week_summary=week_summary,
-        )
+        # Используем структурированный дашборд v3
+        try:
+            dashboard_data = ai.get_structured_dashboard(
+                yesterday_summary=yesterday_summary,
+                week_summary=week_summary,
+            )
+        except Exception as _e:
+            logger.warning(f"Structured dashboard failed ({_e}), fallback to old")
+            raw = ai.get_dashboard_content(
+                yesterday_summary=yesterday_summary,
+                week_summary=week_summary,
+            )
+            dashboard_data = raw if isinstance(raw, dict) else {"html_sections": str(raw), "tasks": [], "meals": {}, "week": [], "surprise": ""}
 
-        if isinstance(raw, dict):
-            dashboard_data = raw
-        else:
-            raw_stripped = raw.strip()
+        if False:
+            raw_stripped = ""
             dashboard_data = {}
             if raw_stripped.startswith("{"):
                 try:

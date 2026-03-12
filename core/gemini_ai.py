@@ -24,22 +24,69 @@ class GeminiEngine:
     def _make_client(self):
         self.client = genai.Client(api_key=self._key_manager.get_key())
 
-    def _call(self, contents, mode: str, max_retries: int = 3) -> str:
+    def _call(self, contents, mode: str, max_retries: int = 4) -> str:
+        """
+        Вызов Gemini с автодочиткой если ответ обрезан (finish_reason=MAX_TOKENS).
+        Если ответ не поместился — делаем продолжение: "Продолжи с места где остановился"
+        и склеиваем. До 3 итераций продолжения.
+        """
         system_prompt = self.persona.build(mode)
+        config = {
+            "system_instruction": system_prompt,
+            "max_output_tokens": 8192,  # максимум для flash
+        }
+
         for attempt in range(max_retries):
             try:
                 response = self.client.models.generate_content(
                     model=MODEL_NAME,
                     contents=contents,
-                    config={"system_instruction": system_prompt},
+                    config=config,
                 )
-                return response.text.strip()
+                text = response.text.strip()
+
+                # Проверяем — не обрезан ли ответ
+                finish = None
+                try:
+                    finish = response.candidates[0].finish_reason
+                except Exception:
+                    pass
+
+                # Если обрезан — дочитываем
+                MAX_CONTINUATIONS = 3
+                continuations = 0
+                while (finish is not None and
+                       str(finish) in ("FinishReason.MAX_TOKENS", "2", "MAX_TOKENS") and
+                       continuations < MAX_CONTINUATIONS):
+                    logger.info(f"Ответ обрезан (MAX_TOKENS), продолжаю {continuations+1}/{MAX_CONTINUATIONS}...")
+                    cont_prompt = (
+                        f"Предыдущий ответ оборвался на:\n...{text[-300:]}\n\n"
+                        f"Продолжи точно с места где остановился, не повторяй уже написанное."
+                    )
+                    cont_resp = self.client.models.generate_content(
+                        model=MODEL_NAME,
+                        contents=cont_prompt,
+                        config=config,
+                    )
+                    continuation = cont_resp.text.strip()
+                    text = text + "\n" + continuation
+                    try:
+                        finish = cont_resp.candidates[0].finish_reason
+                    except Exception:
+                        finish = None
+                    continuations += 1
+
+                return text
+
             except Exception as e:
                 err = str(e)
                 if "429" in err or "quota" in err.lower() or "rate" in err.lower():
-                    logger.warning(f"Rate limit на ключе {attempt+1}, ротирую...")
+                    import time
+                    wait = min(10 * (attempt + 1), 30)
+                    logger.warning(f"Rate limit на ключе {attempt+1}, ротирую, жду {wait}s...")
                     self._key_manager.rotate()
                     self._make_client()
+                    time.sleep(wait)
                 else:
                     logger.error(f"Gemini error: {e}")
                     raise
@@ -83,6 +130,88 @@ class GeminiEngine:
             prompt += " Первый запуск — начни с тёплого приветствия."
         raw = self._call(prompt, mode="morning")
         return raw.replace("```html", "").replace("```", "").strip()
+
+
+    def get_structured_dashboard(self, yesterday_summary: str = "", week_summary: str = "") -> dict:
+        """
+        Генерирует полный структурированный дашборд — JSON с планом, едой, неделей.
+        Используется html_builder v3.
+        """
+        p = self.profile
+        ctx = ""
+        if yesterday_summary: ctx += f"\nВчера: {yesterday_summary}"
+        if week_summary:      ctx += f"\nИтоги недели: {week_summary}"
+
+        from core.diet_mode import DietModeManager
+        mgr = DietModeManager(p)
+        mode_instructions = mgr.get_prompt_instructions()
+        level = int(p.get("diet_level", 2))
+        # На уровне 5 альтернативы не нужны
+        alts_instruction = "" if level >= 5 else "Для каждого блюда дай 2-3 альтернативы (поле alternatives)."
+
+        prompt = f"""Ты AI-коуч по питанию и образу жизни. Составь план дня в JSON.
+
+ПРОФИЛЬ: имя={p.get('name')}, цель={p.get('goal')}, бюджет={p.get('budget')} руб/день,
+ограничения={p.get('restrictions')}, не любит={p.get('dislikes')}{ctx}
+
+{mode_instructions}
+
+Верни ТОЛЬКО JSON без markdown-обёртки:
+{{
+  "tasks": ["задача 1", "задача 2", ...],
+  "surprise": "мотивирующая фраза или интересный факт",
+  "html_sections": "краткий текст плана дня",
+  "meals": {{
+    "breakfast": {{
+      "name": "Название блюда",
+      "desc": "Краткое описание",
+      "kcal": "~350",
+      "img_query": "поисковый запрос для фото на английском",
+      "recipe": ["Шаг 1", "Шаг 2", "Шаг 3"],
+      "alternatives": [{{"name": "Альт. блюдо", "desc": "описание"}}]
+    }},
+    "lunch": {{...}},
+    "dinner": {{...}}
+  }},
+  "week": [
+    {{
+      "meals": {{
+        "breakfast": {{"name":"...", "desc":"...", "kcal":"...", "img_query":"...", "recipe":[], "alternatives":[]}},
+        "lunch":     {{...}},
+        "dinner":    {{...}}
+      }}
+    }},
+    ... (7 дней)
+  ],
+  "shopping": [
+    {{"name": "Продукт", "qty": "500г", "category": "Крупы"}}
+  ]
+}}
+
+{alts_instruction}
+Только JSON, без пояснений."""
+
+        try:
+            raw = self._call(prompt, mode="morning")
+            # Чистим от markdown
+            clean = raw.strip()
+            if "```" in clean:
+                clean = clean.split("```")[1]
+                if clean.startswith("json"): clean = clean[4:]
+                clean = clean.split("```")[0]
+            return json.loads(clean.strip())
+        except Exception as e:
+            logger.error(f"get_structured_dashboard parse error: {e}")
+            # Fallback — возвращаем простую структуру
+            return {
+                "tasks": [],
+                "html_sections": raw if 'raw' in dir() else "Ошибка генерации",
+                "meals": {},
+                "week": [],
+                "shopping": [],
+                "surprise": "",
+            }
+
 
     def get_task_list(self, html_content: str) -> list[str]:
         if not html_content:
