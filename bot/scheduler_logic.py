@@ -67,16 +67,9 @@ def build_dashboard_bytes(user_id: int, profile: dict,
             dashboard_data.setdefault("surprise", "")
 
         builder_obj = DashboardBuilder(user_id, profile)
-
-        if hasattr(builder_obj, "render_to_string"):
-            html_str = builder_obj.render_to_string(dashboard_data)
-        else:
-            # Fallback: render() пишет файл, читаем его
-            html_path = builder_obj.render(dashboard_data)
-            with open(html_path, "r", encoding="utf-8") as f:
-                html_str = f.read()
-
-        return html_str.encode("utf-8")
+        result = builder_obj.render_to_string(dashboard_data)
+        # render_to_string уже возвращает bytes
+        return result if isinstance(result, bytes) else result.encode("utf-8")
 
     except Exception as e:
         logger.error(f"build_dashboard_bytes error for {user_id}: {e}", exc_info=True)

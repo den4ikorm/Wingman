@@ -421,40 +421,44 @@ async def _generate_onboarding(m: types.Message, user_id: int, data: dict, db: M
     status_msg = await m.answer("🤔 Анализирую твой профиль...")
     ai = GeminiEngine(data)
 
-    STEPS = [
-        ("🥗 Составляю диету на 7 дней...",  "_gen_diet"),
-        ("🛒 Формирую список покупок...",     "_gen_shopping"),
-        ("☀️ Готовлю дашборд на сегодня...", "_gen_dashboard"),
-    ]
     results = {}
 
-    for i, (status_text, key) in enumerate(STEPS):
-        bar = "▓" * (i + 1) + "░" * (len(STEPS) - i - 1)
-        try:
-            await status_msg.edit_text(
-                f"`[{bar}]` {i+1}/{len(STEPS)}\n\n{status_text}",
-                parse_mode="Markdown"
-            )
-        except Exception:
-            pass
-        await m.bot.send_chat_action(user_id, "typing")
+    # Шаг 1 — один большой вызов: всё сразу (диета 7 дней + дашборд + покупки)
+    try:
+        await status_msg.edit_text(
+            "`[▓░░]` 1/3\n\n🤖 Gemini генерирует твой план...\n_(может занять 30-60 сек)_",
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+    await m.bot.send_chat_action(user_id, "typing")
 
-        if key == "_gen_diet":
-            results["diet"] = await _safe_call_async(ai.generate_weekly_diet)
+    from bot.scheduler_logic import build_dashboard_bytes
+    _uid, _data = user_id, data
+    results["dashboard_bytes"] = await _safe_call_async(
+        lambda uid=_uid, d=_data: build_dashboard_bytes(uid, d)
+    )
 
-        elif key == "_gen_shopping":
-            diet = results.get("diet")
-            if diet:
-                results["shopping"] = await _safe_call_async(
-                    lambda: ai.generate_shopping_list_structured(diet)
-                )
+    # Шаг 2 — диета текстом для отправки в чат (из кэша dashboard)
+    try:
+        await status_msg.edit_text(
+            "`[▓▓░]` 2/3\n\n📋 Формирую чеклист и советы...",
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+    await m.bot.send_chat_action(user_id, "typing")
+    # Генерируем текстовую диету для отправки в чат
+    results["diet"] = await _safe_call_async(ai.generate_weekly_diet)
 
-        elif key == "_gen_dashboard":
-            from bot.scheduler_logic import build_dashboard_bytes
-            _uid, _data = user_id, data
-            results["dashboard_bytes"] = await _safe_call_async(
-                lambda uid=_uid, d=_data: build_dashboard_bytes(uid, d)
-            )
+    try:
+        await status_msg.edit_text(
+            "`[▓▓▓]` 3/3\n\n✅ Почти готово, собираю всё вместе...",
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+    await m.bot.send_chat_action(user_id, "typing")
 
     # Убираем прогресс-бар
     try:
@@ -472,24 +476,39 @@ async def _generate_onboarding(m: types.Message, user_id: int, data: dict, db: M
     # ── Отправляем диету ────────────────────────────────────────
     diet = results.get("diet")
     if diet:
-        # Убираем markdown чтобы не было ошибок парсинга
-        diet_clean = diet.replace("*", "").replace("_", "").replace("`", "")
-
         async def _send_chunk(text: str):
-            await m.answer(text)
+            """Конвертирует Markdown → HTML и отправляет. При ошибке — plain text."""
+            import re
+            # Markdown → HTML конвертация
+            html = text
+            # **жирный** → <b>жирный</b>
+            html = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', html)
+            # *курсив* → <i>курсив</i>
+            html = re.sub(r'\*(.+?)\*', r'<i>\1</i>', html)
+            # ### Заголовок → <b>Заголовок</b>
+            html = re.sub(r'^#{1,3}\s+(.+)$', r'<b>\1</b>', html, flags=re.MULTILINE)
+            # `код` → <code>код</code>
+            html = re.sub(r'`(.+?)`', r'<code>\1</code>', html)
+            # --- → разделитель
+            html = html.replace('---', '—' * 10)
+            try:
+                await m.answer(html, parse_mode="HTML")
+            except Exception:
+                await m.answer(text)  # fallback — plain text
 
-        # Режем на части по 3500 символов по границе дней
+        # Режем на части по 3500 символов по границе дней/разделов
         CHUNK = 3500
-        if len(diet_clean) <= CHUNK:
-            await _send_chunk(diet_clean)
+        if len(diet) <= CHUNK:
+            await _send_chunk(diet)
         else:
-            # Ищем границы дней для красивого разбиения
             chunks = []
-            remaining = diet_clean
+            remaining = diet
             while len(remaining) > CHUNK:
-                # Ищем "День X" после позиции CHUNK//2
+                # Ищем ближайший перенос строки перед границей
                 cut = remaining.rfind("\nДень ", 0, CHUNK)
-                if cut < 100:  # не нашли — режем по символу
+                if cut < 200:
+                    cut = remaining.rfind("\n", 0, CHUNK)
+                if cut < 100:
                     cut = CHUNK
                 chunks.append(remaining[:cut])
                 remaining = remaining[cut:]
