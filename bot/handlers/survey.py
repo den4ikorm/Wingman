@@ -1,9 +1,13 @@
 """
 bot/handlers/survey.py
-Полная анкета онбординга — 12 шагов
-После завершения: Gemini генерирует диету на 7 дней + список покупок
+Анкета онбординга v2 — 13 шагов без Gemini
+Gemini вызывается ОДИН РАЗ в самом конце одним блоком.
+Прогресс-бар + статусные сообщения пока думает.
 """
 
+import re
+import asyncio
+import logging
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -13,29 +17,33 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from core.database import MemoryManager
 from core.gemini_ai import GeminiEngine
 from bot.scheduler_logic import setup_user_jobs
+from plugins.idea_factory import get_main_keyboard
 
+logger = logging.getLogger(__name__)
 router = Router()
+
+TOTAL_STEPS = 13
 
 
 class Survey(StatesGroup):
-    name        = State()
-    age         = State()
-    gender      = State()
-    body        = State()  # вес и рост одним сообщением
-    goal        = State()
-    activity    = State()
+    name         = State()
+    age          = State()
+    gender       = State()
+    body         = State()
+    goal         = State()
+    activity     = State()
     restrictions = State()
-    dislikes    = State()
-    budget      = State()
-    meal_plan   = State()
-    schedule    = State()  # время подъёма и сна
-    hobby       = State()
+    dislikes     = State()
+    budget       = State()
+    meal_plan    = State()
+    schedule     = State()
+    timezone     = State()
+    hobby        = State()
 
 
 # ── HELPERS ────────────────────────────────────────────────────────────────
 
 def kb(*buttons: tuple) -> types.InlineKeyboardMarkup:
-    """Быстрый билдер inline-клавиатуры из кортежей (текст, data)"""
     builder = InlineKeyboardBuilder()
     for text, data in buttons:
         builder.button(text=text, callback_data=data)
@@ -43,20 +51,69 @@ def kb(*buttons: tuple) -> types.InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-async def ask(message: types.Message, text: str, markup=None):
-    await message.answer(text, reply_markup=markup, parse_mode="Markdown")
+def progress(step: int) -> str:
+    """Прогресс-бар: ● ● ● ○ ○ ○"""
+    filled = "●" * step
+    empty  = "○" * (TOTAL_STEPS - step)
+    pct    = int(step / TOTAL_STEPS * 100)
+    return f"`{filled}{empty}` {pct}%"
 
 
-# ── СТАРТ АНКЕТЫ ───────────────────────────────────────────────────────────
+async def ask(message: types.Message, step: int, text: str, markup=None):
+    full = f"{progress(step)}\n*Шаг {step} из {TOTAL_STEPS}*\n\n{text}"
+    await message.answer(full, reply_markup=markup, parse_mode="Markdown")
+
+
+async def ask_edit(cb: types.CallbackQuery, step: int, text: str, markup=None):
+    full = f"{progress(step)}\n*Шаг {step} из {TOTAL_STEPS}*\n\n{text}"
+    await cb.message.edit_text(full, reply_markup=markup, parse_mode="Markdown")
+    await cb.answer()
+
+
+def parse_time_smart(text: str):
+    text = text.lower().strip()
+    digit_times = re.findall(r'\d{1,2}[:.]?\d{2}', text)
+    if len(digit_times) >= 2:
+        def fix(t):
+            t = t.replace('.', ':')
+            if ':' in t:
+                h, m = t.split(':')
+            else:
+                h, m = t[:2], t[2:]
+            return f"{int(h):02d}:{int(m):02d}"
+        return fix(digit_times[0]), fix(digit_times[1])
+
+    word_map = {
+        "ноль": 0, "один": 1, "одного": 1, "два": 2, "двух": 2, "двенадцать": 12,
+        "три": 3, "трёх": 3, "четыре": 4, "пять": 5, "шесть": 6,
+        "семь": 7, "восемь": 8, "девять": 9, "десять": 10, "одиннадцать": 11,
+        "тринадцать": 13, "четырнадцать": 14, "пятнадцать": 15,
+        "шестнадцать": 16, "семнадцать": 17, "восемнадцать": 18,
+        "девятнадцать": 19, "двадцать": 20,
+    }
+    for word, num in sorted(word_map.items(), key=lambda x: -len(x[0])):
+        text = text.replace(word, str(num))
+
+    all_nums = re.findall(r'\d+', text)
+    if len(all_nums) >= 2:
+        h1 = int(all_nums[0])
+        h2 = int(all_nums[1])
+        if any(w in text for w in ["вечер", "ночи", "ночью", "pm"]) and h2 < 12:
+            h2 += 12
+        if h1 > 24 or h2 > 24:
+            return None, None
+        return f"{h1:02d}:00", f"{h2:02d}:00"
+
+    return None, None
+
+
+# ── СТАРТ ──────────────────────────────────────────────────────────────────
 
 @router.message(F.text.casefold() == "анкета")
 @router.message(Command("survey"))
 async def start_survey(message: types.Message, state: FSMContext):
     await state.set_state(Survey.name)
-    await ask(message,
-        "Привет! Давай познакомимся — я составлю тебе персональную диету 🥗\n\n"
-        "*Шаг 1 из 12*\nКак тебя зовут?"
-    )
+    await ask(message, 1, "Давай познакомимся 🤝\n\nКак тебя зовут?")
 
 
 # ── ШАГ 1: ИМЯ ─────────────────────────────────────────────────────────────
@@ -65,17 +122,18 @@ async def start_survey(message: types.Message, state: FSMContext):
 async def s_name(m: types.Message, state: FSMContext):
     await state.update_data(name=m.text.strip())
     await state.set_state(Survey.age)
-    await ask(m, f"Приятно познакомиться, {m.text.strip()}! 👋\n\n*Шаг 2 из 12*\nСколько тебе лет?")
+    await ask(m, 2, f"Приятно, {m.text.strip()}! 👋\n\nСколько тебе лет?")
 
 
 # ── ШАГ 2: ВОЗРАСТ ─────────────────────────────────────────────────────────
 
 @router.message(Survey.age)
 async def s_age(m: types.Message, state: FSMContext):
-    await state.update_data(age=m.text.strip())
+    nums = re.findall(r'\d+', m.text)
+    age = nums[0] if nums else m.text.strip()
+    await state.update_data(age=age)
     await state.set_state(Survey.gender)
-    await ask(m,
-        "*Шаг 3 из 12*\nПол?",
+    await ask(m, 3, "Пол?",
         kb(("👨 Мужской", "gender_m"), ("👩 Женский", "gender_f"))
     )
 
@@ -87,31 +145,29 @@ async def s_gender(cb: types.CallbackQuery, state: FSMContext):
     gender = "Мужской" if cb.data == "gender_m" else "Женский"
     await state.update_data(gender=gender)
     await state.set_state(Survey.body)
-    await cb.message.edit_text(
-        f"*Шаг 4 из 12*\nНапиши свой вес и рост через пробел\n\n"
-        f"Например: `78 182`\n_(кг и см)_",
-        parse_mode="Markdown"
+    await ask_edit(cb, 4,
+        "Напиши вес и рост через пробел\n\n"
+        "Например: `78 182` или `78кг 182см`"
     )
-    await cb.answer()
 
 
 # ── ШАГ 4: ВЕС + РОСТ ─────────────────────────────────────────────────────
 
 @router.message(Survey.body)
 async def s_body(m: types.Message, state: FSMContext):
-    parts = m.text.strip().split()
-    if len(parts) == 2 and all(p.isdigit() for p in parts):
-        await state.update_data(weight=parts[0], height=parts[1])
+    nums = re.findall(r'\d+', m.text)
+    if len(nums) >= 2:
+        await state.update_data(weight=nums[0], height=nums[1])
+    elif len(nums) == 1:
+        await state.update_data(weight=nums[0], height="не указан")
     else:
-        await state.update_data(weight=m.text.strip(), height="не указан")
-
+        await state.update_data(weight="не указан", height="не указан")
     await state.set_state(Survey.goal)
-    await ask(m,
-        "*Шаг 5 из 12*\nКакая твоя главная цель?",
+    await ask(m, 5, "Какая твоя главная цель?",
         kb(
-            ("🔥 Похудение",    "goal_loss"),
-            ("💪 Набор массы",  "goal_gain"),
-            ("❤️ Здоровье",     "goal_health"),
+            ("🔥 Похудение",     "goal_loss"),
+            ("💪 Набор массы",   "goal_gain"),
+            ("❤️ Здоровье",      "goal_health"),
             ("⚡ Больше энергии", "goal_energy"),
         )
     )
@@ -122,24 +178,19 @@ async def s_body(m: types.Message, state: FSMContext):
 @router.callback_query(F.data.startswith("goal_"), Survey.goal)
 async def s_goal(cb: types.CallbackQuery, state: FSMContext):
     goals = {
-        "goal_loss":   "Похудение",
-        "goal_gain":   "Набор массы",
-        "goal_health": "Здоровье",
-        "goal_energy": "Больше энергии",
+        "goal_loss": "Похудение", "goal_gain": "Набор массы",
+        "goal_health": "Здоровье", "goal_energy": "Больше энергии",
     }
     await state.update_data(goal=goals[cb.data])
     await state.set_state(Survey.activity)
-    await cb.message.edit_text(
-        "*Шаг 6 из 12*\nКакой у тебя уровень активности?",
-        reply_markup=kb(
+    await ask_edit(cb, 6, "Уровень активности?",
+        kb(
             ("🪑 Сидячая работа",     "act_low"),
             ("🚶 Лёгкая активность",  "act_light"),
             ("🏃 Спорт 3-5 дней/нед", "act_mid"),
             ("🏋️ Физический труд",    "act_high"),
-        ),
-        parse_mode="Markdown"
+        )
     )
-    await cb.answer()
 
 
 # ── ШАГ 6: АКТИВНОСТЬ ──────────────────────────────────────────────────────
@@ -147,25 +198,20 @@ async def s_goal(cb: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("act_"), Survey.activity)
 async def s_activity(cb: types.CallbackQuery, state: FSMContext):
     acts = {
-        "act_low":   "Сидячая работа",
-        "act_light": "Лёгкая активность",
-        "act_mid":   "Спорт 3-5 дней в неделю",
-        "act_high":  "Физический труд",
+        "act_low": "Сидячая работа", "act_light": "Лёгкая активность",
+        "act_mid": "Спорт 3-5 дней в неделю", "act_high": "Физический труд",
     }
     await state.update_data(activity=acts[cb.data])
     await state.set_state(Survey.restrictions)
-    await cb.message.edit_text(
-        "*Шаг 7 из 12*\nЕсть ли пищевые ограничения?",
-        reply_markup=kb(
-            ("✅ Нет ограничений",    "rest_none"),
-            ("🌱 Вегетарианство",     "rest_veg"),
-            ("🌿 Веганство",          "rest_vegan"),
-            ("☪️ Халяль",             "rest_halal"),
-            ("⚠️ Есть аллергии",      "rest_allergy"),
-        ),
-        parse_mode="Markdown"
+    await ask_edit(cb, 7, "Пищевые ограничения?",
+        kb(
+            ("✅ Нет ограничений", "rest_none"),
+            ("🌱 Вегетарианство",  "rest_veg"),
+            ("🌿 Веганство",       "rest_vegan"),
+            ("☪️ Халяль",          "rest_halal"),
+            ("⚠️ Есть аллергии",   "rest_allergy"),
+        )
     )
-    await cb.answer()
 
 
 # ── ШАГ 7: ОГРАНИЧЕНИЯ ─────────────────────────────────────────────────────
@@ -173,40 +219,27 @@ async def s_activity(cb: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("rest_"), Survey.restrictions)
 async def s_restrictions(cb: types.CallbackQuery, state: FSMContext):
     rests = {
-        "rest_none":    "Нет ограничений",
-        "rest_veg":     "Вегетарианство",
-        "rest_vegan":   "Веганство",
-        "rest_halal":   "Халяль",
+        "rest_none": "Нет ограничений", "rest_veg": "Вегетарианство",
+        "rest_vegan": "Веганство", "rest_halal": "Халяль",
         "rest_allergy": "Есть аллергии",
     }
-    val = rests[cb.data]
-    await state.update_data(restrictions=val)
+    await state.update_data(restrictions=rests[cb.data])
     await state.set_state(Survey.dislikes)
-
     if cb.data == "rest_allergy":
-        await cb.message.edit_text(
-            "*Шаг 8 из 12*\nНа что именно аллергия? Напиши через запятую\n\n"
-            "Например: `орехи, молоко, глютен`",
-            parse_mode="Markdown"
-        )
+        await ask_edit(cb, 8, "На что именно аллергия? Напиши через запятую")
     else:
-        await cb.message.edit_text(
-            "*Шаг 8 из 12*\nЕсть продукты которые ты не любишь или не ешь?\n\n"
-            "Напиши через запятую или напиши *нет*",
-            parse_mode="Markdown"
-        )
-    await cb.answer()
+        await ask_edit(cb, 8, "Продукты которые не любишь или не ешь?\n\nНапиши или отправь *нет*")
 
 
-# ── ШАГ 8: НЕЛЮБИМЫЕ ПРОДУКТЫ ─────────────────────────────────────────────
+# ── ШАГ 8: НЕЛЮБИМОЕ ──────────────────────────────────────────────────────
 
 @router.message(Survey.dislikes)
 async def s_dislikes(m: types.Message, state: FSMContext):
     await state.update_data(dislikes=m.text.strip())
     await state.set_state(Survey.budget)
-    await ask(m,
-        "*Шаг 9 из 12*\nКакой примерный бюджет на питание в день?\n\n"
-        "Напиши сумму в рублях, например: `500`"
+    await ask(m, 9,
+        "Бюджет на питание в день?\n\n"
+        "Можно написать: `500`, `около 500 рублей`, `пятьсот`"
     )
 
 
@@ -214,15 +247,16 @@ async def s_dislikes(m: types.Message, state: FSMContext):
 
 @router.message(Survey.budget)
 async def s_budget(m: types.Message, state: FSMContext):
-    await state.update_data(budget=m.text.strip())
+    nums = re.findall(r'\d+', m.text)
+    budget = nums[0] if nums else m.text.strip()
+    await state.update_data(budget=budget)
     await state.set_state(Survey.meal_plan)
-    await ask(m,
-        "*Шаг 10 из 12*\nКак тебе удобнее питаться?",
+    await ask(m, 10, "Как удобнее питаться?",
         kb(
-            ("🍽 3 раза в день",       "meal_3"),
-            ("🥗 Дробно 5-6 раз",      "meal_5"),
-            ("⏱ Интервальное 16/8",    "meal_interval"),
-            ("🤷 Как получится",        "meal_flex"),
+            ("🍽 3 раза в день",    "meal_3"),
+            ("🥗 Дробно 5-6 раз",   "meal_5"),
+            ("⏱ Интервальное 16/8", "meal_interval"),
+            ("🤷 Как получится",    "meal_flex"),
         )
     )
 
@@ -232,38 +266,60 @@ async def s_budget(m: types.Message, state: FSMContext):
 @router.callback_query(F.data.startswith("meal_"), Survey.meal_plan)
 async def s_meal_plan(cb: types.CallbackQuery, state: FSMContext):
     meals = {
-        "meal_3":        "3 раза в день",
-        "meal_5":        "Дробно 5-6 раз",
-        "meal_interval": "Интервальное 16/8",
-        "meal_flex":     "Гибкий график",
+        "meal_3": "3 раза в день", "meal_5": "Дробно 5-6 раз",
+        "meal_interval": "Интервальное 16/8", "meal_flex": "Гибкий график",
     }
     await state.update_data(meal_plan=meals[cb.data])
     await state.set_state(Survey.schedule)
-    await cb.message.edit_text(
-        "*Шаг 11 из 12*\nВо сколько просыпаешься и ложишься спать?\n\n"
-        "Напиши через пробел, например: `07:00 23:30`",
-        parse_mode="Markdown"
+    await ask_edit(cb, 11,
+        "Во сколько просыпаешься и ложишься?\n\n"
+        "Напиши как удобно:\n"
+        "`07:00 23:00` или `в семь утра, в одиннадцать`\n"
+        "_Не знаешь — напиши *не знаю*_"
     )
-    await cb.answer()
 
 
 # ── ШАГ 11: РАСПИСАНИЕ ─────────────────────────────────────────────────────
 
 @router.message(Survey.schedule)
 async def s_schedule(m: types.Message, state: FSMContext):
-    parts = m.text.strip().split()
-    wake = parts[0] if len(parts) >= 1 else "07:00"
-    bed  = parts[1] if len(parts) >= 2 else "23:00"
+    text = m.text.strip().lower()
+    if any(w in text for w in ["не знаю", "незнаю", "стандарт", "default", "обычно"]):
+        wake, bed = "07:00", "23:00"
+    else:
+        wake, bed = parse_time_smart(text)
+        if not wake:
+            wake, bed = "07:00", "23:00"
     await state.update_data(wake_up_time=wake, bedtime=bed)
+    await state.set_state(Survey.timezone)
+    await ask(m, 12, "В каком городе живёшь?\n\nНапример: `Москва`, `Хабаровск`")
+
+
+# ── ШАГ 12: ГОРОД ──────────────────────────────────────────────────────────
+
+@router.message(Survey.timezone)
+async def s_timezone(m: types.Message, state: FSMContext):
+    city = m.text.strip()
+    tz_map = {
+        "москва": 3, "санкт-петербург": 3, "питер": 3, "спб": 3,
+        "екатеринбург": 5, "новосибирск": 7, "красноярск": 7,
+        "иркутск": 8, "якутск": 9, "хабаровск": 10, "владивосток": 10,
+        "магадан": 11, "камчатка": 12, "калининград": 2, "самара": 4,
+        "уфа": 5, "пермь": 5, "челябинск": 5, "омск": 6, "томск": 7,
+        "барнаул": 7, "чита": 9, "казань": 3, "нижний новгород": 3,
+        "ростов": 3, "краснодар": 3, "воронеж": 3, "тюмень": 5,
+    }
+    utc_offset = tz_map.get(city.lower(), 3)
+    await state.update_data(city=city, utc_offset=utc_offset)
     await state.set_state(Survey.hobby)
-    await ask(m,
-        "*Шаг 12 из 12 — последний!*\n\n"
-        "Расскажи немного о себе — хобби, работа, образ жизни?\n"
-        "_(Это поможет сделать план ближе к реальности)_"
+    await ask(m, 13,
+        "Последний шаг! 🎉\n\n"
+        "Расскажи о себе — хобби, работа, образ жизни?\n"
+        "_Это поможет сделать план ближе к реальности_"
     )
 
 
-# ── ШАГ 12: ХОББИ + ФИНАЛ ──────────────────────────────────────────────────
+# ── ШАГ 13: ХОББИ + ФИНАЛ ──────────────────────────────────────────────────
 
 @router.message(Survey.hobby)
 async def s_final(m: types.Message, state: FSMContext):
@@ -278,29 +334,131 @@ async def s_final(m: types.Message, state: FSMContext):
 
     await state.clear()
 
+    # Сразу показываем клавиатуру и сообщение об ожидании
     await m.answer(
-        f"✅ Отлично, {data.get('name')}! Профиль готов.\n\n"
-        "Генерирую твою персональную диету на 7 дней... 🥗\n"
-        "Это займёт 10-15 секунд."
+        f"✅ Профиль сохранён, {data.get('name')}!\n\n"
+        "Сейчас готовлю твой персональный план — "
+        "диету на 7 дней, список покупок и дашборд.\n\n"
+        "⏳ Обычно занимает *1-2 минуты* — просто подожди, "
+        "я напишу когда всё будет готово.",
+        reply_markup=get_main_keyboard(),
+        parse_mode="Markdown"
     )
 
-    # Генерируем диету и список покупок
+    # Запускаем генерацию с прогрессом
+    await _generate_onboarding(m, user_id, data, db)
+
+
+async def _generate_onboarding(m: types.Message, user_id: int, data: dict, db: MemoryManager):
+    """
+    Один большой запрос к Gemini после анкеты.
+    Показывает прогресс через сообщения. Не падает при ошибках.
+    """
+    status_msg = await m.answer("🤔 Анализирую твой профиль...")
+
     ai = GeminiEngine(data)
+    steps = [
+        ("🥗 Составляю диету на 7 дней...",    "_gen_diet"),
+        ("🛒 Формирую список покупок...",       "_gen_shopping"),
+        ("☀️ Готовлю утренний дашборд...",      "_gen_dashboard"),
+    ]
 
+    results = {}
+
+    for i, (status_text, key) in enumerate(steps):
+        # Обновляем статус
+        bar = "▓" * (i + 1) + "░" * (len(steps) - i - 1)
+        try:
+            await status_msg.edit_text(
+                f"`[{bar}]` {i+1}/{len(steps)}\n\n{status_text}"
+            )
+        except Exception:
+            pass
+
+        # Typing индикатор
+        await m.bot.send_chat_action(user_id, "typing")
+
+        # Генерируем с retry при ошибке
+        if key == "_gen_diet":
+            results["diet"] = await _safe_call(ai.generate_weekly_diet, user_id)
+        elif key == "_gen_shopping":
+            if results.get("diet"):
+                results["shopping"] = await _safe_call(
+                    lambda: ai.generate_shopping_list_structured(results["diet"]), user_id
+                )
+        elif key == "_gen_dashboard":
+            from bot.scheduler_logic import send_morning_dashboard
+            results["dashboard"] = await _safe_call(
+                lambda: send_morning_dashboard(user_id), user_id, is_async=True
+            )
+
+    # Убираем прогресс
     try:
-        diet_text = ai.generate_weekly_diet()
-        shopping  = ai.generate_shopping_list(diet_text)
+        await status_msg.delete()
+    except Exception:
+        pass
 
-        await m.answer(diet_text, parse_mode="Markdown")
-        await m.answer(shopping,  parse_mode="Markdown")
-        await m.answer(
-            "Утром пришлю план дня с учётом твоего рациона.\n"
-            "Вечером сверимся как прошло 🌙\n\n"
-            "Если хочешь изменить что-то — напиши /survey заново."
-        )
-    except Exception as e:
+    # Сохраняем список покупок
+    if results.get("shopping"):
+        try:
+            db.save_shopping_list(results["shopping"])
+        except Exception:
+            pass
+
+    # Отправляем диету
+    diet = results.get("diet")
+    if diet:
+        # Разбиваем на части если длинная
+        if len(diet) > 4000:
+            mid = diet.find("\n*День 4")
+            split = mid if mid > 0 else 4000
+            await m.answer(diet[:split], parse_mode="Markdown")
+            await asyncio.sleep(0.5)
+            await m.answer(diet[split:], parse_mode="Markdown")
+        else:
+            await m.answer(diet, parse_mode="Markdown")
+    else:
         await m.answer(
             "Профиль сохранён ✅\n"
-            "Не смог сгенерировать диету прямо сейчас — попробуй написать "
-            "«составь мне диету» и я всё сделаю."
+            "Диету пришлю чуть позже — напиши *составь мне диету*",
+            parse_mode="Markdown"
         )
+
+    # Итоговое сообщение
+    shopping_ok = "✅" if results.get("shopping") else "⚠️"
+    dashboard_ok = "✅" if results.get("dashboard") is not False else "⚠️"
+
+    await m.answer(
+        f"🎉 Всё готово!\n\n"
+        f"{shopping_ok} Список покупок → /shopping\n"
+        f"{dashboard_ok} Утренний план → /plan\n"
+        f"⚖️ Записывай вес → /weight 78.5\n\n"
+        "Утром буду присылать план автоматически 🌅\n"
+        "Вечером сверимся как прошло 🌙"
+    )
+
+
+async def _safe_call(fn, user_id: int, is_async: bool = False, retries: int = 2):
+    """
+    Безопасный вызов с retry при ошибке Gemini.
+    При 429 ждёт 5 сек и переключает ключ.
+    """
+    from core.key_manager import rotate_key
+    for attempt in range(retries):
+        try:
+            if is_async:
+                return await fn()
+            else:
+                return fn()
+        except Exception as e:
+            err = str(e).lower()
+            logger.warning(f"Attempt {attempt+1} failed: {e}")
+            if "429" in err or "quota" in err or "rate" in err:
+                rotate_key()
+                await asyncio.sleep(5)
+            elif attempt < retries - 1:
+                await asyncio.sleep(3)
+            else:
+                logger.error(f"All retries failed: {e}")
+                return None
+    return None
