@@ -25,18 +25,26 @@ async def main():
     dp = Dispatcher(storage=storage)
 
     from bot.handlers import healer_handler
+    from bot.handlers import travel_handler
     dp.include_router(survey.router)
     dp.include_router(evening_handler.router)
     dp.include_router(diet_mode_router)
     dp.include_router(idea_router)
     dp.include_router(healer_handler.router)
+    dp.include_router(travel_handler.router)
     dp.include_router(common.router)
 
     setup_scheduler()
     setup_nightly_patterns()
     setup_healer_scheduler(bot)   # 🔧 Self-Healing
+
+    # Weekly Summary Agent
+    from core.weekly_summary import setup_weekly_scheduler
+    from core.database import get_all_user_ids
+    setup_weekly_scheduler(bot, get_all_user_ids)
+
     scheduler.start()
-    logging.info("Wingman v3.4 started — HealerAgent enabled")
+    logging.info("Wingman v3.5 started — Multi-Agent + Travel + Weekly")
 
     # Регистрируем команды в меню Telegram
     from aiogram.types import BotCommand
@@ -53,6 +61,7 @@ async def main():
         BotCommand(command="mode",      description="Режим питания"),
         BotCommand(command="survey",    description="Пройти анкету заново"),
         BotCommand(command="healer",    description="🔧 Лечилка (только admin)"),
+        BotCommand(command="travel",    description="✈️ Планировщик путешествий"),
     ])
 
     await bot.delete_webhook(drop_pending_updates=True)

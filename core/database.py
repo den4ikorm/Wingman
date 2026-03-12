@@ -470,3 +470,36 @@ class MemoryManager:
             (self.user_id,)
         )
         return [{"pattern": r["pattern_name"], "confidence": r["confidence"]} for r in rows]
+
+
+def get_all_user_ids() -> list[int]:
+    """Возвращает список всех user_id у которых есть профиль."""
+    with get_conn() as conn:
+        rows = conn.execute("SELECT user_id FROM profiles").fetchall()
+        return [r["user_id"] for r in rows]
+
+
+def get_last_week_summary(self) -> str:
+    """Возвращает дайджест последней недели для контекста агентов."""
+    try:
+        row = self._fetch_one(
+            "SELECT digest FROM week_summaries ORDER BY week_start DESC LIMIT 1"
+        )
+        return row["digest"] if row else ""
+    except Exception:
+        return ""
+
+def save_week_summary(self, week_start: str, digest: str):
+    """Сохраняет недельный дайджест."""
+    try:
+        self._exec(
+            "CREATE TABLE IF NOT EXISTS week_summaries "
+            "(week_start TEXT PRIMARY KEY, digest TEXT, created_at TEXT)"
+        )
+        self._exec(
+            "INSERT OR REPLACE INTO week_summaries (week_start, digest, created_at) "
+            "VALUES (?, ?, ?)",
+            (week_start, digest, __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
+    except Exception as e:
+        import logging; logging.getLogger(__name__).error(f"save_week_summary: {e}")

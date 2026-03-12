@@ -596,19 +596,31 @@ async def handle_chat(message: types.Message):
     if any(p in lowered for p in ["не угадал", "сегодня не так", "другое настроение"]):
         db.reset_memory_light()
 
-    # Получаем историю для контекста
-    history = db.get_recent_history(limit=20)
-
-    # Typing пока Gemini думает
+    # Typing пока думаем
     await message.bot.send_chat_action(user_id, "typing")
 
-    ai = GeminiEngine(profile)
-    reply = ai.chat(user_text, history=history[:-1])
-
-    # Сохраняем ответ бота
-    db.save_message("assistant", reply)
-
-    if "[FEATURE]" in reply:
-        db.log_insight(reply)
-
-    await message.answer(reply)
+    # Orchestrator — маршрутизируем к нужному агенту
+    try:
+        from core.orchestrator import Orchestrator
+        orch = Orchestrator(user_id, profile, db)
+        agent_name, reply = await orch.route(user_text)
+        # Сохраняем ответ
+        db.save_message("assistant", reply)
+        # EventBus — событие чата для CoachAgent
+        if agent_name == "CoachAgent":
+            try:
+                from core.event_bus import EventBus
+                EventBus(user_id, db).emit("checkin_done")
+            except Exception:
+                pass
+        await message.answer(reply)
+    except Exception as _oe:
+        # Fallback на старый GeminiEngine
+        logger.warning(f"Orchestrator failed ({_oe}), fallback to GeminiEngine")
+        history = db.get_recent_history(limit=20)
+        ai = GeminiEngine(profile)
+        reply = ai.chat(user_text, history=history[:-1])
+        db.save_message("assistant", reply)
+        if "[FEATURE]" in reply:
+            db.log_insight(reply)
+        await message.answer(reply)

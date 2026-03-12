@@ -14,6 +14,46 @@ MODEL_NAME = "gemini-2.5-flash"
 logger = logging.getLogger(__name__)
 
 
+def _extract_json(text: str) -> dict:
+    """
+    Надёжный парсер JSON из ответа Gemini.
+    Обрабатывает все варианты: чистый JSON, обёрнутый в ```json```,
+    с текстом до/после, с комментариями /* */.
+    """
+    import re as _re, json as _json
+    s = text.strip()
+
+    # 1. Убираем комментарии вида /* ... */ которые Gemini иногда добавляет
+    s = _re.sub(r'/\*.*?\*/', '""', s, flags=_re.DOTALL)
+
+    # 2. Вырезаем из ```json ... ```
+    m = _re.search(r'```(?:json)?\s*(\{.*?\})\s*```', s, _re.DOTALL)
+    if m:
+        s = m.group(1)
+
+    # 3. Находим первый { и последний } — берём всё между ними
+    start = s.find('{')
+    end   = s.rfind('}')
+    if start != -1 and end != -1 and end > start:
+        s = s[start:end+1]
+
+    # 4. Парсим — три попытки с нарастающей очисткой
+    for attempt in range(3):
+        try:
+            return _json.loads(s)
+        except _json.JSONDecodeError as e:
+            if attempt == 0:
+                # Убираем trailing commas: ,} и ,]
+                s = _re.sub(r',\s*([}\]])', r'', s)
+            elif attempt == 1:
+                # Заменяем одинарные кавычки на двойные (осторожно)
+                s = _re.sub(r"(?<![\\])'", '"', s)
+            else:
+                logger.error(f"_extract_json failed after 3 attempts: {e}")
+                raise
+    raise ValueError("JSON extraction failed")
+
+
 class GeminiEngine:
     def __init__(self, user_profile: dict):
         self.profile = user_profile
@@ -203,25 +243,17 @@ class GeminiEngine:
 {alts_instruction}
 Только JSON. Ничего больше."""
 
+        raw = ""
         try:
             raw = self._call(prompt, mode="morning")
-            # Чистим от markdown
-            clean = raw.strip()
-            if "```" in clean:
-                clean = clean.split("```")[1]
-                if clean.startswith("json"): clean = clean[4:]
-                clean = clean.split("```")[0]
-            return json.loads(clean.strip())
+            return _extract_json(raw)
         except Exception as e:
-            logger.error(f"get_structured_dashboard parse error: {e}")
-            # Fallback — возвращаем простую структуру
+            logger.error(f"get_structured_dashboard parse error: {e}\nraw[:200]={raw[:200]}")
             return {
                 "tasks": [],
-                "html_sections": raw if 'raw' in dir() else "Ошибка генерации",
-                "meals": {},
-                "week": [],
-                "shopping": [],
-                "surprise": "",
+                "html_sections": raw[:500] if raw else "Ошибка генерации",
+                "meals": {}, "week": [], "shopping": [], "surprise": "",
+                "quote": "", "quote_author": "", "tips": [],
             }
 
 
