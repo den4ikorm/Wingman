@@ -6,7 +6,7 @@ load_dotenv()
 from bot.config import bot, storage, scheduler
 from bot.handlers import survey, common, evening_handler
 from bot.handlers.diet_mode_handler import router as diet_mode_router
-from bot.scheduler_logic import setup_scheduler, setup_nightly_patterns
+from bot.scheduler_logic import setup_scheduler, setup_nightly_patterns, setup_healer_scheduler
 from core.database import init_db
 from core.pattern_cache import init_pattern_tables
 from plugins.idea_factory import router as idea_router
@@ -24,16 +24,19 @@ async def main():
     from aiogram import Dispatcher
     dp = Dispatcher(storage=storage)
 
+    from bot.handlers import healer_handler
     dp.include_router(survey.router)
     dp.include_router(evening_handler.router)
     dp.include_router(diet_mode_router)
     dp.include_router(idea_router)
+    dp.include_router(healer_handler.router)
     dp.include_router(common.router)
 
     setup_scheduler()
     setup_nightly_patterns()
+    setup_healer_scheduler(bot)   # 🔧 Self-Healing
     scheduler.start()
-    logging.info("Wingman v3.3 started — pattern cache enabled")
+    logging.info("Wingman v3.4 started — HealerAgent enabled")
 
     # Регистрируем команды в меню Telegram
     from aiogram.types import BotCommand
@@ -49,6 +52,7 @@ async def main():
         BotCommand(command="recipes",   description="Мои рецепты"),
         BotCommand(command="mode",      description="Режим питания"),
         BotCommand(command="survey",    description="Пройти анкету заново"),
+        BotCommand(command="healer",    description="🔧 Лечилка (только admin)"),
     ])
 
     await bot.delete_webhook(drop_pending_updates=True)

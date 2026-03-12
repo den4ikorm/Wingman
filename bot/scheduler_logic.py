@@ -301,6 +301,42 @@ async def run_nightly_pattern_update():
             logger.error(f"Pattern update failed for {user_id}: {e}")
 
 
+# ── HEALER SCHEDULER ──────────────────────────────────────────────────────────
+
+_healer_paused = False
+
+def pause_healer():
+    global _healer_paused
+    _healer_paused = True
+
+def resume_healer():
+    global _healer_paused
+    _healer_paused = False
+
+def setup_healer_scheduler(bot):
+    """Запускает HealerAgent каждые 10 минут."""
+    import asyncio
+    from core.healer_agent import HealerAgent
+    from bot.handlers.healer_handler import set_healer
+
+    healer = HealerAgent(bot=bot)
+    set_healer(healer)
+
+    async def _run():
+        if not _healer_paused:
+            await healer.run_check()
+
+    scheduler.add_job(
+        lambda: asyncio.create_task(_run()),
+        "interval",
+        minutes=10,
+        id="healer_check",
+        replace_existing=True,
+    )
+    logger.info("HealerAgent scheduler started (every 10 min)")
+    return healer
+
+
 def setup_nightly_patterns():
     scheduler.add_job(
         run_nightly_pattern_update, "cron",
