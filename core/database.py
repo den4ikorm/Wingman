@@ -80,6 +80,15 @@ def init_db():
                 text       TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS diet_compliance (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                day_date   TEXT NOT NULL,
+                followed   INTEGER DEFAULT 1,
+                note       TEXT DEFAULT '',
+                created_at TEXT NOT NULL,
+                UNIQUE(user_id, day_date)
+            );
             """)
     logger.info("DB initialized (WAL mode)")
 
@@ -343,6 +352,28 @@ class MemoryManager:
             "INSERT INTO feedback (user_id, text, created_at) VALUES (?,?,?)",
             (self.user_id, text, self._now())
         )
+
+    # ── DIET COMPLIANCE (соблюдение плана) ────────────────────────
+
+    def log_compliance(self, followed: bool, note: str = ""):
+        """Записать соблюдал ли пользователь план сегодня."""
+        today = str(date.today())
+        self._exec(
+            """INSERT OR REPLACE INTO diet_compliance
+               (user_id, day_date, followed, note, created_at)
+               VALUES (?,?,?,?,?)""",
+            (self.user_id, today, int(followed), note, self._now())
+        )
+
+    def get_compliance_history(self, days: int = 30) -> list[dict]:
+        since = str(date.today() - timedelta(days=days))
+        rows = self._fetch_all(
+            "SELECT day_date, followed, note FROM diet_compliance "
+            "WHERE user_id=? AND day_date >= ? ORDER BY day_date",
+            (self.user_id, since)
+        )
+        return [{"date": r["day_date"], "followed": bool(r["followed"]),
+                 "note": r["note"]} for r in rows]
 
     # ── INSIGHTS ───────────────────────────────────────────────────
 

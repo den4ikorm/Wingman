@@ -1,16 +1,14 @@
 import asyncio
 import logging
 from dotenv import load_dotenv
-from aiogram import Dispatcher
-
 load_dotenv()
 
 from bot.config import bot, storage, scheduler
 from bot.handlers import survey, common, evening_handler
-from bot.scheduler_logic import setup_scheduler
+from bot.handlers.diet_mode_handler import router as diet_mode_router
+from bot.scheduler_logic import setup_scheduler, setup_nightly_patterns
 from core.database import init_db
-
-# ── ПЛАГИНЫ (подключаются независимо) ─────────────────────────────────
+from core.pattern_cache import init_pattern_tables
 from plugins.idea_factory import router as idea_router
 
 logging.basicConfig(
@@ -21,21 +19,23 @@ logging.basicConfig(
 
 async def main():
     init_db()
+    init_pattern_tables()
 
+    from aiogram import Dispatcher
     dp = Dispatcher(storage=storage)
 
-    # Порядок важен: survey первым
     dp.include_router(survey.router)
     dp.include_router(evening_handler.router)
-    dp.include_router(idea_router)      # плагин Idea Factory
-    dp.include_router(common.router)   # common последним (ловит F.text)
+    dp.include_router(diet_mode_router)
+    dp.include_router(idea_router)
+    dp.include_router(common.router)
 
     setup_scheduler()
+    setup_nightly_patterns()
     scheduler.start()
-    logging.info("Wingman v3 started")
+    logging.info("Wingman v3.3 started — pattern cache enabled")
 
     await bot.delete_webhook(drop_pending_updates=True)
-
     try:
         await dp.start_polling(bot)
     finally:

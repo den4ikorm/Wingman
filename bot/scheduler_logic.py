@@ -1,13 +1,18 @@
 """
 bot/scheduler_logic.py
-Планировщик v3: утро, сюрприз, еда, вечер, недельный отчёт
+Планировщик v3.4 — FIXED:
+  - build_dashboard_bytes() → HTML в памяти, без файловой системы
+  - send_morning_dashboard() → BufferedInputFile + asyncio.to_thread
+  - Sync Gemini вызовы через to_thread — event loop не блокируется
 """
 
+import asyncio
 import logging
+import json
 import random
 from datetime import datetime, timedelta
 
-from aiogram.types import InlineKeyboardButton, FSInputFile
+from aiogram.types import InlineKeyboardButton, BufferedInputFile
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.config import bot, scheduler
@@ -21,7 +26,81 @@ _user_registry: dict[int, dict] = {}
 WEBAPP_DOMAIN = "bot-production-55d2.up.railway.app"
 
 
-# ── УТРО ───────────────────────────────────────────────────────────────────
+# ── ХЕЛПЕР: HTML в памяти ─────────────────────────────────────────────────
+
+def build_dashboard_bytes(user_id: int, profile: dict,
+                          yesterday_summary: str = "",
+                          week_summary: str = "") -> bytes | None:
+    """
+    Синхронная — вызывать через asyncio.to_thread().
+    Возвращает HTML как bytes, не пишет файлы на диск.
+    """
+    try:
+        ai = GeminiEngine(profile)
+        raw = ai.get_dashboard_content(
+            yesterday_summary=yesterday_summary,
+            week_summary=week_summary,
+        )
+
+        if isinstance(raw, dict):
+            dashboard_data = raw
+        else:
+            raw_stripped = raw.strip()
+            dashboard_data = {}
+            if raw_stripped.startswith("{"):
+                try:
+                    dashboard_data = json.loads(raw_stripped)
+                except Exception:
+                    pass
+            if not dashboard_data.get("tasks"):
+                dashboard_data["tasks"] = _extract_tasks(raw)
+            if not dashboard_data.get("meals"):
+                dashboard_data["meals"] = _extract_meals(raw)
+            dashboard_data.setdefault("html_sections", raw)
+            dashboard_data.setdefault("surprise", "")
+
+        builder_obj = DashboardBuilder(user_id, profile)
+
+        if hasattr(builder_obj, "render_to_string"):
+            html_str = builder_obj.render_to_string(dashboard_data)
+        else:
+            # Fallback: render() пишет файл, читаем его
+            html_path = builder_obj.render(dashboard_data)
+            with open(html_path, "r", encoding="utf-8") as f:
+                html_str = f.read()
+
+        return html_str.encode("utf-8")
+
+    except Exception as e:
+        logger.error(f"build_dashboard_bytes error for {user_id}: {e}", exc_info=True)
+        return None
+
+
+def _extract_tasks(text: str) -> list[str]:
+    tasks = []
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith(("- ", "• ", "* ", "1.", "2.", "3.", "4.", "5.")):
+            task = line.lstrip("-•*0123456789. ").strip()
+            if 5 < len(task) < 120:
+                tasks.append(task)
+    return tasks[:10]
+
+
+def _extract_meals(text: str) -> dict:
+    meals = {}
+    for line in text.splitlines():
+        low = line.lower()
+        if "завтрак" in low and "завтрак" not in meals:
+            meals["завтрак"] = line.split(":", 1)[-1].strip()
+        elif "обед" in low and "обед" not in meals:
+            meals["обед"] = line.split(":", 1)[-1].strip()
+        elif "ужин" in low and "ужин" not in meals:
+            meals["ужин"] = line.split(":", 1)[-1].strip()
+    return meals
+
+
+# ── УТРО ──────────────────────────────────────────────────────────────────
 
 async def send_morning_dashboard(user_id: int):
     db = MemoryManager(user_id)
@@ -37,57 +116,39 @@ async def send_morning_dashboard(user_id: int):
         )
         db.mark_report_pending(False)
 
-    # Контекст для утреннего промпта
-    yesterday_summary = db.get_day_summary()  # вчера уже сохранён
+    yesterday_summary = db.get_day_summary()
     week_summary = db.get_latest_week_summary()
 
-    ai = GeminiEngine(profile)
-
     try:
-        dashboard_data = ai.get_dashboard_content(
-            yesterday_summary=yesterday_summary,
-            week_summary=week_summary,
+        html_bytes = await asyncio.to_thread(
+            build_dashboard_bytes, user_id, profile,
+            yesterday_summary, week_summary
         )
-        # Если вернулась строка (старый формат) — оборачиваем
-        if isinstance(dashboard_data, str):
-            dashboard_data = {"html_sections": dashboard_data, "tasks": [], "meals": {}, "surprise": ""}
-
-        db.save_last_plan(dashboard_data.get("html_sections", ""))
-        db.save_tasks(dashboard_data.get("tasks", []))
-
-        builder_obj = DashboardBuilder(user_id, profile)
-        html_path = builder_obj.render(dashboard_data)
+        if not html_bytes:
+            raise ValueError("build_dashboard_bytes вернул None")
 
         name = profile.get("name", "")
         greeting = f"☀️ Доброе утро{', ' + name if name else ''}!"
 
-        await bot.send_document(
-            user_id,
-            FSInputFile(html_path, filename="my_day.html"),
-            caption=f"{greeting}\nТвой план на сегодня 👇"
+        kb = InlineKeyboardBuilder()
+        kb.row(
+            InlineKeyboardButton(text="🛒 Покупки", callback_data="show_shopping"),
+            InlineKeyboardButton(text="📊 Прогресс", callback_data="noop"),
         )
 
-        tasks = dashboard_data.get("tasks", [])
-        if tasks:
-            kb = InlineKeyboardBuilder()
-            kb.row(
-                InlineKeyboardButton(text="✅ Мои задачи",  callback_data="show_tasks"),
-                InlineKeyboardButton(text="🍽 Рацион",      callback_data="show_meals"),
-                InlineKeyboardButton(text="🛒 Покупки",     callback_data="show_shopping"),
-            )
-            await bot.send_message(
-                user_id,
-                "*Задачи на день:*\n" + "\n".join(f"{i+1}. {t}" for i, t in enumerate(tasks)),
-                reply_markup=kb.as_markup(),
-                parse_mode="Markdown"
-            )
+        await bot.send_document(
+            user_id,
+            BufferedInputFile(html_bytes, filename="my_day.html"),
+            caption=f"{greeting}\nТвой план на сегодня 👇\nОткрой файл в браузере 📂",
+            reply_markup=kb.as_markup(),
+        )
 
     except Exception as e:
         logger.error(f"Morning dashboard error for {user_id}: {e}")
         await bot.send_message(user_id, "☀️ Доброе утро! Не смог сгенерировать план — попробуй /plan")
 
 
-# ── СЮРПРИЗ ────────────────────────────────────────────────────────────────
+# ── СЮРПРИЗ ───────────────────────────────────────────────────────────────
 
 async def send_surprise(user_id: int):
     db = MemoryManager(user_id)
@@ -96,13 +157,13 @@ async def send_surprise(user_id: int):
         return
     ai = GeminiEngine(profile)
     try:
-        surprise = ai.get_surprise()
+        surprise = await asyncio.to_thread(ai.get_surprise)
         await bot.send_message(user_id, surprise, parse_mode="Markdown")
     except Exception as e:
         logger.error(f"Surprise error for {user_id}: {e}")
 
 
-# ── НАПОМИНАНИЯ ────────────────────────────────────────────────────────────
+# ── НАПОМИНАНИЯ ───────────────────────────────────────────────────────────
 
 async def remind_meal(user_id: int, meal_name: str):
     db = MemoryManager(user_id)
@@ -113,7 +174,7 @@ async def remind_meal(user_id: int, meal_name: str):
     await bot.send_message(user_id, f"{emoji} Время {meal_name}! Не забудь про рацион 💪")
 
 
-# ── ВЕЧЕР ──────────────────────────────────────────────────────────────────
+# ── ВЕЧЕР ─────────────────────────────────────────────────────────────────
 
 async def send_evening_prompt(user_id: int):
     db = MemoryManager(user_id)
@@ -127,32 +188,26 @@ async def send_evening_prompt(user_id: int):
     db.mark_report_pending(True)
 
 
-# ── НЕДЕЛЬНЫЙ ОТЧЁТ (воскресенье 20:00) ───────────────────────────────────
+# ── НЕДЕЛЬНЫЙ ОТЧЁТ ───────────────────────────────────────────────────────
 
 async def send_weekly_summary(user_id: int):
     db = MemoryManager(user_id)
     profile = db.get_profile()
     if not profile:
         return
-
     summaries = db.get_last_7_summaries()
     if not summaries:
         return
-
     ai = GeminiEngine(profile)
     try:
-        week_text = ai.generate_week_summary(summaries)
+        week_text = await asyncio.to_thread(ai.generate_week_summary, summaries)
         db.save_week_summary(week_text)
-        await bot.send_message(
-            user_id,
-            f"📊 *Итоги недели*\n\n{week_text}",
-            parse_mode="Markdown"
-        )
+        await bot.send_message(user_id, f"📊 *Итоги недели*\n\n{week_text}", parse_mode="Markdown")
     except Exception as e:
         logger.error(f"Weekly summary error for {user_id}: {e}")
 
 
-# ── НАСТРОЙКА JOB'ОВ ───────────────────────────────────────────────────────
+# ── НАСТРОЙКА JOB'ОВ ──────────────────────────────────────────────────────
 
 def setup_user_jobs(user_id: int, wake_up_time: str, bedtime: str):
     profile = MemoryManager(user_id).get_profile()
@@ -164,52 +219,43 @@ def setup_user_jobs(user_id: int, wake_up_time: str, bedtime: str):
         "utc_offset": utc_offset,
     }
 
-    # Утро: подъём + 15 мин → UTC
     wake_h, wake_m = map(int, wake_up_time.split(":"))
     wake_h_utc = (wake_h - utc_offset) % 24
-    morning_dt = datetime.now().replace(hour=wake_h_utc, minute=wake_m) + timedelta(minutes=15)
 
     scheduler.add_job(
         send_morning_dashboard, "cron",
-        hour=morning_dt.hour, minute=morning_dt.minute,
+        hour=wake_h_utc, minute=(wake_m + 15) % 60,
         args=[user_id], id=f"morning_{user_id}", replace_existing=True,
     )
 
-    # Сюрприз: случайное время 10-18
-    surprise_h = random.randint(10, 18)
-    surprise_m = random.randint(0, 59)
-    surprise_h_utc = (surprise_h - utc_offset) % 24
+    surprise_h_utc = (random.randint(10, 18) - utc_offset) % 24
     scheduler.add_job(
         send_surprise, "cron",
-        hour=surprise_h_utc, minute=surprise_m,
+        hour=surprise_h_utc, minute=random.randint(0, 59),
         args=[user_id], id=f"surprise_{user_id}", replace_existing=True,
     )
 
-    # Напоминания еды (UTC)
-    meal_times = [
-        ((wake_h_utc + 1) % 24, wake_m, "Завтрак"),
-        ((13 - utc_offset) % 24, 0, "Обед"),
-        ((19 - utc_offset) % 24, 0, "Ужин"),
-    ]
-    for h, m, name in meal_times:
+    for local_h, m, meal_name in [
+        (wake_h + 1, wake_m, "Завтрак"),
+        (13, 0, "Обед"),
+        (19, 0, "Ужин"),
+    ]:
         scheduler.add_job(
             remind_meal, "cron",
-            hour=h, minute=m,
-            args=[user_id, name],
-            id=f"meal_{name.lower()}_{user_id}", replace_existing=True,
+            hour=(local_h - utc_offset) % 24, minute=m,
+            args=[user_id, meal_name],
+            id=f"meal_{meal_name.lower()}_{user_id}", replace_existing=True,
         )
 
-    # Вечер: за 2 часа до сна → UTC
     bed_h, bed_m = map(int, bedtime.split(":"))
     bed_h_utc = (bed_h - utc_offset) % 24
-    eve_dt = datetime.now().replace(hour=bed_h_utc, minute=bed_m) - timedelta(hours=2)
+    eve_h = (bed_h_utc - 2) % 24
     scheduler.add_job(
         send_evening_prompt, "cron",
-        hour=eve_dt.hour, minute=eve_dt.minute,
+        hour=eve_h, minute=bed_m,
         args=[user_id], id=f"evening_{user_id}", replace_existing=True,
     )
 
-    # Недельный отчёт: воскресенье 20:00 по UTC
     weekly_h = (20 - utc_offset) % 24
     scheduler.add_job(
         send_weekly_summary, "cron",
@@ -217,11 +263,32 @@ def setup_user_jobs(user_id: int, wake_up_time: str, bedtime: str):
         args=[user_id], id=f"weekly_{user_id}", replace_existing=True,
     )
 
-    logger.info(
-        f"Jobs set for {user_id}: morning={morning_dt.hour:02d}:{morning_dt.minute:02d}, "
-        f"surprise={surprise_h_utc:02d}:{surprise_m:02d}, evening={eve_dt.hour:02d}:{eve_dt.minute:02d}"
-    )
+    logger.info(f"Jobs set for user {user_id}: morning={wake_h_utc:02d}:{(wake_m+15)%60:02d} UTC")
 
 
 def setup_scheduler():
-    logger.info("Scheduler configured")
+    logger.info("Scheduler ready")
+
+
+# ── НОЧНОЕ ОБНОВЛЕНИЕ ПАТТЕРНОВ ───────────────────────────────────────────
+
+async def run_nightly_pattern_update():
+    from core.pattern_cache import analyze_and_update_patterns
+    logger.info("Nightly pattern update started")
+    for user_id in list(_user_registry.keys()):
+        try:
+            result = await analyze_and_update_patterns(user_id)
+            if result:
+                logger.info(f"Patterns updated for {user_id}")
+            await asyncio.sleep(3)
+        except Exception as e:
+            logger.error(f"Pattern update failed for {user_id}: {e}")
+
+
+def setup_nightly_patterns():
+    scheduler.add_job(
+        run_nightly_pattern_update, "cron",
+        hour=2, minute=0,
+        id="nightly_patterns", replace_existing=True,
+    )
+    logger.info("Nightly pattern update scheduled at 02:00 UTC")

@@ -172,6 +172,11 @@ class GeminiEngine:
 
     def generate_weekly_diet(self) -> str:
         p = self.profile
+        # Подключаем живой режим
+        from core.diet_mode import DietModeManager
+        mgr = DietModeManager(p)
+        mode_instructions = mgr.get_prompt_instructions()
+
         prompt = f"""
 Составь персональную диету на 7 дней:
 — Имя: {p.get('name')}, {p.get('age')} лет, {p.get('gender')}
@@ -179,6 +184,8 @@ class GeminiEngine:
 — Цель: {p.get('goal')}, активность: {p.get('activity')}
 — Ограничения: {p.get('restrictions')}, не любит: {p.get('dislikes')}
 — Бюджет/день: {p.get('budget')} руб, график: {p.get('meal_plan')}
+
+{mode_instructions}
 
 Формат — Markdown:
 *День 1*
@@ -255,6 +262,34 @@ _(перекусы)_
         hobby = self.profile.get("hobby", "")
         prompt = f"Придумай {surprise_type}. Учитывай хобби: {hobby}. Формат: короткий пост до 150 слов с эмодзи."
         return self._call(prompt, mode="chat")
+
+    # ── РЕЦЕПТЫ ПО ПЛАНУ ──────────────────────────────────────────
+
+    def generate_recipes_for_day(self, day_plan: str = None) -> str:
+        p = self.profile
+        plan_context = f"\nПлан дня:\n{day_plan}" if day_plan else ""
+        prompt = f"""
+Составь подробные рецепты для завтрака, обеда и ужина.
+Учитывай профиль: цель — {p.get('goal')}, ограничения — {p.get('restrictions')}, не любит — {p.get('dislikes')}.{plan_context}
+
+Для каждого приёма пищи дай рецепт в формате:
+
+🌅 *Завтрак: Название*
+⏱ Время: X мин | 📊 ~X ккал | 🥩 Б: Xг | 🧈 Ж: Xг | 🌾 У: Xг
+
+📝 Ингредиенты:
+— ...
+
+👨‍🍳 Приготовление:
+1. ...
+2. ...
+3. ...
+
+---
+
+То же самое для Обеда и Ужина.
+"""
+        return self._call(prompt, mode="morning")
 
     # ── АНАЛИЗ ХОЛОДИЛЬНИКА ────────────────────────────────────────
 

@@ -39,6 +39,8 @@ class Survey(StatesGroup):
     schedule     = State()
     timezone     = State()
     hobby        = State()
+    psychotype   = State()
+    diet_level   = State()
 
 
 # ── HELPERS ────────────────────────────────────────────────────────────────
@@ -319,146 +321,241 @@ async def s_timezone(m: types.Message, state: FSMContext):
     )
 
 
-# ── ШАГ 13: ХОББИ + ФИНАЛ ──────────────────────────────────────────────────
+# ── ШАГ 13: ХОББИ → переход к психотипу ───────────────────────────────────
 
 @router.message(Survey.hobby)
-async def s_final(m: types.Message, state: FSMContext):
+async def s_hobby(m: types.Message, state: FSMContext):
+    await state.update_data(hobby=m.text.strip())
+    await state.set_state(Survey.psychotype)
+
+    from core.diet_mode import PSYCHOTYPES
+    kb = InlineKeyboardBuilder()
+    for key, desc in PSYCHOTYPES.items():
+        kb.button(text=desc, callback_data=f"psycho_{key}")
+    kb.adjust(1)
+
+    await m.answer(
+        "🧠 *Почти готово! Шаг 14/15*\n\n"
+        "Как ты обычно ешь?\n"
+        "_Это поможет подобрать правильный режим_",
+        reply_markup=kb.as_markup(),
+        parse_mode="Markdown"
+    )
+
+
+# ── ШАГ 14: ПСИХОТИП ───────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("psycho_"), Survey.psychotype)
+async def s_psychotype(cb: types.CallbackQuery, state: FSMContext):
+    psycho = cb.data.split("_", 1)[1]
+    await state.update_data(psychotype=psycho)
+    await state.set_state(Survey.diet_level)
+
+    # Получаем данные для умного предложения уровня
     data = await state.get_data()
-    data["hobby"] = m.text.strip()
+    from core.diet_mode import suggest_level, LEVELS, get_all_levels_text
+    sugg_level, explanation = suggest_level({**data, "psychotype": psycho})
+
+    kb = InlineKeyboardBuilder()
+    for lvl, info in LEVELS.items():
+        mark = "⭐ " if lvl == sugg_level else ""
+        kb.button(text=f"{mark}{info['name']}", callback_data=f"level_{lvl}")
+    kb.adjust(1)
+
+    await cb.message.edit_text(
+        f"*Шаг 15/15 — Режим питания*\n\n"
+        f"💡 {explanation}\n\n"
+        f"*1.* 🌿 Интуитивное — общие советы\n"
+        f"*2.* 🥗 Сбалансированное — без фанатизма\n"
+        f"*3.* ⚡ Активное — чёткий план\n"
+        f"*4.* 🏋️ Спортивное — под тренировки\n"
+        f"*5.* 🔥 Максимум — жёсткий протокол\n\n"
+        f"Выбери свой уровень:",
+        reply_markup=kb.as_markup(),
+        parse_mode="Markdown"
+    )
+    await cb.answer()
+
+
+# ── ШАГ 15: УРОВЕНЬ + ФИНАЛ ────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("level_"), Survey.diet_level)
+async def s_final(cb: types.CallbackQuery, state: FSMContext):
+    level = int(cb.data.split("_")[1])
+    data  = await state.get_data()
+    data["diet_level"]   = level
     data["current_vibe"] = "observer"
 
-    user_id = m.from_user.id
-    db = MemoryManager(user_id)
+    from core.diet_mode import LEVELS
+    level_info = LEVELS[level]
+
+    user_id = cb.from_user.id
+    db      = MemoryManager(user_id)
     db.save_profile(data)
     setup_user_jobs(user_id, data["wake_up_time"], data["bedtime"])
 
     await state.clear()
+    await cb.answer()
 
-    # Сразу показываем клавиатуру и сообщение об ожидании
-    await m.answer(
-        f"✅ Профиль сохранён, {data.get('name')}!\n\n"
+    await cb.message.answer(
+        f"✅ *Профиль сохранён, {data.get('name')}!*\n\n"
+        f"Режим: {level_info['name']}\n"
+        f"_{level_info['desc']}_\n\n"
         "Сейчас готовлю твой персональный план — "
         "диету на 7 дней, список покупок и дашборд.\n\n"
-        "⏳ Обычно занимает *1-2 минуты* — просто подожди, "
-        "я напишу когда всё будет готово.",
+        "⏳ Обычно занимает *1-2 минуты* — просто подожди.",
         reply_markup=get_main_keyboard(),
         parse_mode="Markdown"
     )
 
-    # Запускаем генерацию с прогрессом
-    await _generate_onboarding(m, user_id, data, db)
+    await _generate_onboarding(cb.message, user_id, data, db)
 
 
 async def _generate_onboarding(m: types.Message, user_id: int, data: dict, db: MemoryManager):
     """
-    Один большой запрос к Gemini после анкеты.
-    Показывает прогресс через сообщения. Не падает при ошибках.
+    Генерация плана после анкеты.
+    - Все Gemini вызовы идут через asyncio.to_thread → event loop не блокируется.
+    - Retry-цикл: крутится пока не получим результат (или 5 попыток).
+    - После успеха отправляет дашборд как HTML-файл + кнопку «Скачать».
     """
     status_msg = await m.answer("🤔 Анализирую твой профиль...")
-
     ai = GeminiEngine(data)
-    steps = [
-        ("🥗 Составляю диету на 7 дней...",    "_gen_diet"),
-        ("🛒 Формирую список покупок...",       "_gen_shopping"),
-        ("☀️ Готовлю утренний дашборд...",      "_gen_dashboard"),
-    ]
 
+    STEPS = [
+        ("🥗 Составляю диету на 7 дней...",  "_gen_diet"),
+        ("🛒 Формирую список покупок...",     "_gen_shopping"),
+        ("☀️ Готовлю дашборд на сегодня...", "_gen_dashboard"),
+    ]
     results = {}
 
-    for i, (status_text, key) in enumerate(steps):
-        # Обновляем статус
-        bar = "▓" * (i + 1) + "░" * (len(steps) - i - 1)
+    for i, (status_text, key) in enumerate(STEPS):
+        bar = "▓" * (i + 1) + "░" * (len(STEPS) - i - 1)
         try:
             await status_msg.edit_text(
-                f"`[{bar}]` {i+1}/{len(steps)}\n\n{status_text}"
+                f"`[{bar}]` {i+1}/{len(STEPS)}\n\n{status_text}",
+                parse_mode="Markdown"
             )
         except Exception:
             pass
-
-        # Typing индикатор
         await m.bot.send_chat_action(user_id, "typing")
 
-        # Генерируем с retry при ошибке
         if key == "_gen_diet":
-            results["diet"] = await _safe_call(ai.generate_weekly_diet, user_id)
+            results["diet"] = await _safe_call_async(ai.generate_weekly_diet)
+
         elif key == "_gen_shopping":
-            if results.get("diet"):
-                results["shopping"] = await _safe_call(
-                    lambda: ai.generate_shopping_list_structured(results["diet"]), user_id
+            diet = results.get("diet")
+            if diet:
+                results["shopping"] = await _safe_call_async(
+                    lambda: ai.generate_shopping_list_structured(diet)
                 )
+
         elif key == "_gen_dashboard":
-            from bot.scheduler_logic import send_morning_dashboard
-            results["dashboard"] = await _safe_call(
-                lambda: send_morning_dashboard(user_id), user_id, is_async=True
+            from bot.scheduler_logic import build_dashboard_bytes
+            _uid, _data = user_id, data
+            results["dashboard_bytes"] = await _safe_call_async(
+                lambda uid=_uid, d=_data: build_dashboard_bytes(uid, d)
             )
 
-    # Убираем прогресс
+    # Убираем прогресс-бар
     try:
         await status_msg.delete()
     except Exception:
         pass
 
-    # Сохраняем список покупок
+    # Сохраняем список покупок в БД
     if results.get("shopping"):
         try:
             db.save_shopping_list(results["shopping"])
         except Exception:
             pass
 
-    # Отправляем диету
+    # ── Отправляем диету ────────────────────────────────────────
     diet = results.get("diet")
     if diet:
-        # Разбиваем на части если длинная
+        async def _send_diet(text: str):
+            """Отправляет текст с Markdown, при ошибке парсинга — без форматирования."""
+            try:
+                await m.answer(text, parse_mode="Markdown")
+            except Exception:
+                await m.answer(text)
+
         if len(diet) > 4000:
             mid = diet.find("\n*День 4")
             split = mid if mid > 0 else 4000
-            await m.answer(diet[:split], parse_mode="Markdown")
-            await asyncio.sleep(0.5)
-            await m.answer(diet[split:], parse_mode="Markdown")
+            await _send_diet(diet[:split])
+            await asyncio.sleep(0.3)
+            await _send_diet(diet[split:])
         else:
-            await m.answer(diet, parse_mode="Markdown")
+            await _send_diet(diet)
     else:
         await m.answer(
-            "Профиль сохранён ✅\n"
-            "Диету пришлю чуть позже — напиши *составь мне диету*",
+            "Профиль сохранён ✅\nДиету пришлю чуть позже — напиши *составь мне диету*",
             parse_mode="Markdown"
         )
 
-    # Итоговое сообщение
-    shopping_ok = "✅" if results.get("shopping") else "⚠️"
-    dashboard_ok = "✅" if results.get("dashboard") is not False else "⚠️"
+    # ── Отправляем HTML-дашборд как файл ────────────────────────
+    dashboard_bytes = results.get("dashboard_bytes")
+    if dashboard_bytes:
+        from aiogram.types import BufferedInputFile
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+        kb = InlineKeyboardBuilder()
+        kb.button(text="📅 /plan — обновить план", callback_data="noop")
+        kb.button(text="🛒 /shopping — покупки",   callback_data="noop")
+        await m.answer_document(
+            BufferedInputFile(dashboard_bytes, filename="my_day.html"),
+            caption="☀️ *Твой персональный дашборд готов!*\nОткрой файл в браузере 👆",
+            reply_markup=kb.as_markup(),
+            parse_mode="Markdown"
+        )
+    else:
+        await m.answer("Дашборд пришлю утром — или вызови /plan вручную")
+
+    # ── Итоговое сообщение ───────────────────────────────────────
+    shopping_ok  = "✅" if results.get("shopping")        else "⚠️"
+    dashboard_ok = "✅" if results.get("dashboard_bytes") else "⚠️"
+
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🍳 Рецепты на сегодня → /recipes", callback_data="noop")
+    kb.button(text="🛒 Список покупок → /shopping",    callback_data="noop")
+    kb.button(text="📅 Обновить план → /plan",          callback_data="noop")
+    kb.adjust(1)
 
     await m.answer(
-        f"🎉 Всё готово!\n\n"
+        f"🎉 *Всё готово!*\n\n"
         f"{shopping_ok} Список покупок → /shopping\n"
         f"{dashboard_ok} Утренний план → /plan\n"
+        f"🍳 Рецепты на сегодня → /recipes\n"
         f"⚖️ Записывай вес → /weight 78.5\n\n"
         "Утром буду присылать план автоматически 🌅\n"
-        "Вечером сверимся как прошло 🌙"
+        "Вечером сверимся как прошло 🌙",
+        reply_markup=kb.as_markup(),
+        parse_mode="Markdown"
     )
 
 
-async def _safe_call(fn, user_id: int, is_async: bool = False, retries: int = 2):
+async def _safe_call_async(fn, retries: int = 5):
     """
-    Безопасный вызов с retry при ошибке Gemini.
-    При 429 ждёт 5 сек и переключает ключ.
+    Запускает синхронную fn() в отдельном потоке (asyncio.to_thread).
+    Не блокирует event loop → Telegram не шлёт повторные апдейты.
+    Retry-цикл с экспоненциальной задержкой при ошибках Gemini.
     """
     from core.key_manager import rotate_key
     for attempt in range(retries):
         try:
-            if is_async:
-                return await fn()
-            else:
-                return fn()
+            result = await asyncio.to_thread(fn)
+            return result
         except Exception as e:
             err = str(e).lower()
-            logger.warning(f"Attempt {attempt+1} failed: {e}")
+            logger.warning(f"_safe_call_async attempt {attempt+1}/{retries}: {e}")
             if "429" in err or "quota" in err or "rate" in err:
                 rotate_key()
-                await asyncio.sleep(5)
+                wait = min(5 * (attempt + 1), 30)
+                logger.info(f"Rate limit — ротирую ключ, жду {wait}s")
+                await asyncio.sleep(wait)
             elif attempt < retries - 1:
-                await asyncio.sleep(3)
+                await asyncio.sleep(3 * (attempt + 1))
             else:
-                logger.error(f"All retries failed: {e}")
+                logger.error(f"Все {retries} попыток провалились: {e}")
                 return None
     return None

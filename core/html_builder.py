@@ -229,3 +229,59 @@ window.onload = () => {{
         with open(self.out_path, "w", encoding="utf-8") as f:
             f.write(html)
         return self.out_path
+
+    def render_to_string(self, data: dict) -> str:
+        """
+        Возвращает HTML как строку без записи на диск.
+        Дублирует логику render() но без open().
+        """
+        vibe_colors = {
+            "spark":    {"accent": "#FF6B35", "bg": "#1a0f0a", "card": "#2a1510"},
+            "observer": {"accent": "#4CAF50", "bg": "#0f1a0f", "card": "#152015"},
+            "twilight": {"accent": "#7C6AF5", "bg": "#0f0d1a", "card": "#17142a"},
+        }
+        c = vibe_colors.get(self.vibe, vibe_colors["observer"])
+        name     = self.profile.get("name", "")
+        date_str = datetime.now().strftime("%d %B %Y")
+        tasks    = data.get("tasks", [])
+        meals    = data.get("meals", {})
+        surprise = data.get("surprise", "")
+
+        tasks_html = "".join(
+            f'<li class="task-item" onclick="toggleTask(this)">'
+            f'<span class="check">○</span> {t}</li>'
+            for t in tasks
+        )
+
+        meals_html = ""
+        for meal, content in meals.items():
+            emoji = {"завтрак": "🌅", "обед": "☀️", "ужин": "🌙"}.get(meal.lower(), "🍽")
+            meals_html += f"<div class='meal-row'><b>{emoji} {meal.capitalize()}</b><p>{content}</p></div>"
+
+        surprise_html = f"""
+        <div class="surprise-card">
+            <div class="surprise-icon">🎁</div>
+            <div class="surprise-content">{surprise}</div>
+        </div>
+        """ if surprise else ""
+
+        # Вызываем render() как источник правды для HTML-шаблона,
+        # но перехватываем результат до записи файла
+        # Проще — строим html напрямую через тот же шаблон что и render()
+        # Патчим out_path на /tmp чтобы не упасть на read-only /app
+        import tempfile, os
+        tmp = tempfile.NamedTemporaryFile(suffix=".html", delete=False)
+        tmp.close()
+        old_path = self.out_path
+        self.out_path = tmp.name
+        try:
+            path = self.render(data)
+            with open(path, "r", encoding="utf-8") as f:
+                html = f.read()
+        finally:
+            self.out_path = old_path
+            try:
+                os.unlink(tmp.name)
+            except Exception:
+                pass
+        return html

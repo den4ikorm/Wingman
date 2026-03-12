@@ -35,10 +35,18 @@ async def cmd_help(message: types.Message):
         "📋 *анкета* — настройка профиля\n"
         "/plan — план на день\n"
         "/tasks — задачи на сегодня\n"
+        "/recipes — рецепты на сегодня 🍳\n"
         "/weight 78.5 — записать вес\n"
         "/progress — динамика веса\n"
         "/shopping — список покупок\n"
-        "/fridge — рецепты из холодильника\n"
+        "/fridge — рецепты из холодильника\n\n"
+        "🎯 *Режим питания:*\n"
+        "/mode — текущий режим\n"
+        "/setmode — выбрать уровень 1-5\n"
+        "/psychotype — мой психотип\n"
+        "/morning — настроение утром\n"
+        "/event [событие] — событие сегодня\n"
+        "/streak — мой стрик\n\n"
         "/vibe — сменить настроение\n"
         "/seen [название] — в stop-list\n"
         "/feedback [текст] — отзыв\n"
@@ -357,6 +365,32 @@ async def cmd_fridge(message: types.Message):
         await message.answer("Не смог подобрать рецепты, попробуй позже.")
 
 
+# ── РЕЦЕПТЫ НА СЕГОДНЯ ─────────────────────────────────────────────────────
+
+@router.message(Command("recipes"))
+async def cmd_recipes(message: types.Message):
+    user_id = message.from_user.id
+    db = MemoryManager(user_id)
+    profile = db.get_profile()
+    if not profile:
+        return await message.answer("Сначала заполни анкету — напиши *анкета*", parse_mode="Markdown")
+
+    await message.answer("Готовлю рецепты на сегодня... 🍳")
+    ai = GeminiEngine(profile)
+    try:
+        import asyncio
+        recipes = await asyncio.to_thread(ai.generate_recipes_for_day)
+        if len(recipes) > 4000:
+            mid = recipes.find("\n---", 2000)
+            split = mid if mid > 0 else 4000
+            await message.answer(recipes[:split], parse_mode="Markdown")
+            await message.answer(recipes[split:], parse_mode="Markdown")
+        else:
+            await message.answer(recipes, parse_mode="Markdown")
+    except Exception:
+        await message.answer("Не смог подготовить рецепты, попробуй позже.")
+
+
 # ── СЮРПРИЗ ────────────────────────────────────────────────────────────────
 
 @router.message(Command("surprise"))
@@ -412,6 +446,68 @@ async def cmd_feedback(message: types.Message):
 
 
 # ── ЧАТ С ИСТОРИЕЙ ─────────────────────────────────────────────────────────
+
+
+
+@router.message(Command("update_patterns"))
+async def cmd_update_patterns(message: types.Message):
+    """Запустить анализ паттернов вручную."""
+    user_id = message.from_user.id
+    db = MemoryManager(user_id)
+    if not db.get_profile():
+        return await message.answer("Сначала заполни анкету.")
+
+    msg = await message.answer("🧠 Gemini анализирует твои паттерны...\nЗаймёт ~30 секунд ⏳")
+    await message.bot.send_chat_action(user_id, "typing")
+
+    from core.pattern_cache import analyze_and_update_patterns
+    result = await analyze_and_update_patterns(user_id)
+
+    try:
+        await msg.delete()
+    except Exception:
+        pass
+
+    if result:
+        await message.answer(
+            f"✅ *Паттерны обновлены!*\n\n_{result}_",
+            parse_mode="Markdown"
+        )
+    else:
+        await message.answer("Не смог обновить паттерны — мало данных. Пообщайся ещё немного.")
+
+
+@router.message(Command("cache_stats"))
+async def cmd_cache_stats(message: types.Message):
+    """Статистика кэша шаблонов."""
+    from core.pattern_cache import PatternCache
+    cache = PatternCache(message.from_user.id)
+    stats = cache.get_stats()
+
+    lines = ["📊 *Статистика кэша*\n"]
+
+    if stats["patterns"]:
+        lines.append("*Шаблоны рекомендаций:*")
+        for r in stats["patterns"]:
+            lines.append(f"  {r['category']}: {r['cnt']} записей, показано {r['uses'] or 0} раз")
+    else:
+        lines.append("Шаблонов пока нет — запусти /update\_patterns")
+
+    lines.append("")
+
+    if stats["cache"]:
+        lines.append("*Кэш ответов:*")
+        for r in stats["cache"]:
+            lines.append(f"  {r['query_type']}: {r['cnt']} записей, {r['hits'] or 0} попаданий")
+    else:
+        lines.append("Кэш ответов пуст")
+
+    patterns = cache.get_user_patterns()
+    if patterns.get("insights"):
+        lines.append(f"\n*Инсайт Gemini:*\n_{patterns['insights']}_")
+
+    await message.answer("\n".join(lines), parse_mode="Markdown")
+
 
 @router.message(F.text)
 async def handle_chat(message: types.Message):
