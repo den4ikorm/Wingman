@@ -66,6 +66,16 @@ class EventBus:
         # Проверяем паттерны
         self._check_patterns(event_type, value, metadata)
 
+        # Начисляем XP (невидимая геймификация)
+        try:
+            from core.progress_engine import ProgressEngine
+            pe = ProgressEngine(self.user_id, self.db)
+            xp_gained = pe.add_xp(event_type)
+            if xp_gained > 0:
+                changes["_xp"] = xp_gained
+        except Exception as _xe:
+            pass
+
         logger.debug(f"[{self.user_id}] event={event_type} value={value} changes={changes}")
         return changes
 

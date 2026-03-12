@@ -425,11 +425,58 @@ async def cmd_surprise_toggle(message: types.Message):
 @router.message(Command("streak"))
 async def cmd_streak(message: types.Message):
     db = MemoryManager(message.from_user.id)
-    streak = db.get_streak()
-    if streak == 0:
-        await message.answer("Стрик ещё не начат. Отмечайся каждый вечер! 🔥")
-    else:
-        await message.answer(f"🔥 Твой стрик: *{streak} дней* подряд!", parse_mode="Markdown")
+    try:
+        from core.progress_engine import ProgressEngine
+        pe = ProgressEngine(message.from_user.id, db)
+        await message.answer(pe.get_streak_message(), parse_mode="Markdown")
+    except Exception as _e:
+        streak = db.get_current_streak()
+        if streak == 0:
+            await message.answer("Начни сегодня — и серия пойдёт! 🔥")
+        else:
+            await message.answer(f"🔥 *{streak} дней подряд!*", parse_mode="Markdown")
+
+
+@router.message(Command("profile"))
+async def cmd_profile(message: types.Message):
+    """Профиль прогресса — человеческим языком, без технических слов."""
+    uid = message.from_user.id
+    db  = MemoryManager(uid)
+
+    try:
+        from core.progress_engine import ProgressEngine
+        pe = ProgressEngine(uid, db)
+
+        # Вес
+        profile = db.get_profile()
+        weight_history = db.get_weight_history(days=90)
+        weight_start = profile.get("weight")
+        weight_now   = weight_history[0]["weight"] if weight_history else None
+
+        card = pe.get_profile_card(
+            weight_start=float(weight_start) if weight_start else None,
+            weight_now=weight_now
+        )
+
+        # Персональный инсайт
+        insight = pe.get_insight_message()
+        if insight:
+            card += f"\n\n💡 _{insight}_"
+
+        await message.answer(card, parse_mode="Markdown")
+
+    except Exception as e:
+        # Простой fallback
+        db2 = MemoryManager(uid)
+        streak = db2.get_current_streak()
+        profile = db2.get_profile()
+        await message.answer(
+            f"👤 *Твой профиль*\n\n"
+            f"Цель: {profile.get('goal', '?')}\n"
+            f"🔥 Серия: {streak} дней\n"
+            f"\nПродолжай — всё идёт хорошо!",
+            parse_mode="Markdown"
+        )
 
 
 # ── ФИДБЕК ─────────────────────────────────────────────────────────────────

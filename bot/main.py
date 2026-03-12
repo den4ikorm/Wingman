@@ -35,6 +35,22 @@ async def main():
     scheduler.start()
     logging.info("Wingman v3.3 started — pattern cache enabled")
 
+    # Регистрируем команды в меню Telegram
+    from aiogram.types import BotCommand
+    await bot.set_my_commands([
+        BotCommand(command="plan",      description="Мой план на сегодня"),
+        BotCommand(command="profile",   description="Мой прогресс и статус"),
+        BotCommand(command="streak",    description="Серия дней"),
+        BotCommand(command="weight",    description="Записать вес"),
+        BotCommand(command="progress",  description="График веса"),
+        BotCommand(command="morning",   description="Утренний настрой"),
+        BotCommand(command="shopping",  description="Список покупок"),
+        BotCommand(command="fridge",    description="Что приготовить"),
+        BotCommand(command="recipes",   description="Мои рецепты"),
+        BotCommand(command="mode",      description="Режим питания"),
+        BotCommand(command="survey",    description="Пройти анкету заново"),
+    ])
+
     await bot.delete_webhook(drop_pending_updates=True)
     try:
         await dp.start_polling(bot)
