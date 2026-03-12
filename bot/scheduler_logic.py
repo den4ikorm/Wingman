@@ -37,6 +37,22 @@ def build_dashboard_bytes(user_id: int, profile: dict,
     """
     try:
         ai = GeminiEngine(profile)
+
+        # Собираем контекст состояния (Human State Engine)
+        state_context = ""
+        try:
+            from core.event_bus import EventBus
+            from core.database import MemoryManager
+            _db = MemoryManager(user_id)
+            _bus = EventBus(user_id, _db)
+            _bus.state.apply_daily_decay()   # ежедневный decay
+            state_context = _bus.get_context_for_ai()
+            # Добавляем в yesterday_summary
+            if state_context:
+                yesterday_summary = (yesterday_summary or "") + "\n" + state_context
+        except Exception as _se:
+            logger.warning(f"State context error: {_se}")
+
         # Используем структурированный дашборд v3
         try:
             dashboard_data = ai.get_structured_dashboard(

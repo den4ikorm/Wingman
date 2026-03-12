@@ -89,6 +89,43 @@ def init_db():
                 created_at TEXT NOT NULL,
                 UNIQUE(user_id, day_date)
             );
+
+            -- Human State Engine tables (v3)
+
+            CREATE TABLE IF NOT EXISTS user_state (
+                user_id    INTEGER PRIMARY KEY,
+                state_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS events (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id       INTEGER NOT NULL,
+                event_type    TEXT NOT NULL,
+                value         TEXT,
+                metadata_json TEXT DEFAULT '{}',
+                created_at    TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_events_user_date
+                ON events(user_id, created_at);
+
+            CREATE TABLE IF NOT EXISTS user_patterns (
+                user_id      INTEGER NOT NULL,
+                pattern_name TEXT NOT NULL,
+                confidence   REAL DEFAULT 0.5,
+                detected_at  TEXT NOT NULL,
+                PRIMARY KEY (user_id, pattern_name)
+            );
+
+            CREATE TABLE IF NOT EXISTS solutions (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                problem_type TEXT NOT NULL,
+                context_tags TEXT DEFAULT '',
+                solution     TEXT NOT NULL,
+                success_rate REAL DEFAULT 0.5,
+                usage_count  INTEGER DEFAULT 0,
+                created_at   TEXT NOT NULL
+            );
             """)
     logger.info("DB initialized (WAL mode)")
 
@@ -382,3 +419,54 @@ class MemoryManager:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "a", encoding="utf-8") as f:
             f.write(f"\n--- {self._now()} ---\n{text}\n")
+
+    # ── STREAK ─────────────────────────────────────────────────────
+
+    def get_compliance_history(self, days: int = 30) -> list[dict]:
+        """История соблюдения плана — для streak расчёта."""
+        rows = self._fetch_all(
+            """SELECT day_date, followed, note FROM diet_compliance
+               WHERE user_id=?
+               AND day_date >= date('now', ?)
+               ORDER BY day_date DESC""",
+            (self.user_id, f"-{days} days")
+        )
+        return [{"date": r["day_date"], "followed": bool(r["followed"]),
+                 "note": r["note"]} for r in rows]
+
+    def get_current_streak(self) -> int:
+        """Считает текущий streak (дней подряд)."""
+        history = self.get_compliance_history(days=60)
+        if not history:
+            return 0
+        streak = 0
+        today = date.today()
+        for i, entry in enumerate(history):
+            entry_date = date.fromisoformat(entry["date"])
+            expected = today - timedelta(days=i)
+            if entry_date == expected and entry["followed"]:
+                streak += 1
+            else:
+                break
+        return streak
+
+    # ── STATE / EVENTS helpers ─────────────────────────────────────
+
+    def get_user_state(self) -> dict:
+        """Быстрый доступ к состоянию пользователя."""
+        row = self._fetch_one(
+            "SELECT state_json FROM user_state WHERE user_id=?",
+            (self.user_id,)
+        )
+        if row:
+            import json as _json
+            return _json.loads(row["state_json"])
+        return {}
+
+    def get_user_patterns(self) -> list[dict]:
+        """Паттерны пользователя."""
+        rows = self._fetch_all(
+            "SELECT pattern_name, confidence FROM user_patterns WHERE user_id=? ORDER BY confidence DESC",
+            (self.user_id,)
+        )
+        return [{"pattern": r["pattern_name"], "confidence": r["confidence"]} for r in rows]

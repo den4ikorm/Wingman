@@ -184,16 +184,34 @@ async def cmd_weight(message: types.Message):
     db = MemoryManager(message.from_user.id)
     db.log_weight(weight)
 
+    # Event Bus — обновляем состояние
+    try:
+        from core.event_bus import EventBus
+        history_prev = db.get_weight_history(days=7)
+        prev_weight = history_prev[1]["weight"] if len(history_prev) > 1 else None
+        bus = EventBus(message.from_user.id, db)
+        bus.emit_weight(weight, prev_weight)
+    except Exception as _e:
+        pass
+
     # Показываем динамику
     history = db.get_weight_history(days=30)
     if len(history) > 1:
         first = history[0]["weight"]
         diff = weight - first
         sign = "+" if diff > 0 else ""
+        # Добавляем Daily Score
+        try:
+            from core.human_state import HumanStateEngine
+            _state = HumanStateEngine(message.from_user.id, db)
+            score = _state.get_daily_score()
+            score_line = f"\nСамочувствие: {score}/100"
+        except Exception:
+            score_line = ""
         await message.answer(
             f"⚖️ Записал: *{weight} кг*\n"
             f"За месяц: {sign}{diff:.1f} кг\n"
-            f"Цель: {db.get_profile().get('goal', '?')}",
+            f"Цель: {db.get_profile().get('goal', '?')}{score_line}",
             parse_mode="Markdown"
         )
     else:
