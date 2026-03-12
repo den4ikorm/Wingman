@@ -22,7 +22,7 @@ from plugins.idea_factory import get_main_keyboard
 logger = logging.getLogger(__name__)
 router = Router()
 
-TOTAL_STEPS = 13
+TOTAL_STEPS = 15
 
 
 class Survey(StatesGroup):
@@ -472,21 +472,32 @@ async def _generate_onboarding(m: types.Message, user_id: int, data: dict, db: M
     # ── Отправляем диету ────────────────────────────────────────
     diet = results.get("diet")
     if diet:
-        async def _send_diet(text: str):
-            """Отправляет текст с Markdown, при ошибке парсинга — без форматирования."""
-            try:
-                await m.answer(text, parse_mode="Markdown")
-            except Exception:
-                await m.answer(text)
+        # Убираем markdown чтобы не было ошибок парсинга
+        diet_clean = diet.replace("*", "").replace("_", "").replace("`", "")
 
-        if len(diet) > 4000:
-            mid = diet.find("\n*День 4")
-            split = mid if mid > 0 else 4000
-            await _send_diet(diet[:split])
-            await asyncio.sleep(0.3)
-            await _send_diet(diet[split:])
+        async def _send_chunk(text: str):
+            await m.answer(text)
+
+        # Режем на части по 3500 символов по границе дней
+        CHUNK = 3500
+        if len(diet_clean) <= CHUNK:
+            await _send_chunk(diet_clean)
         else:
-            await _send_diet(diet)
+            # Ищем границы дней для красивого разбиения
+            chunks = []
+            remaining = diet_clean
+            while len(remaining) > CHUNK:
+                # Ищем "День X" после позиции CHUNK//2
+                cut = remaining.rfind("\nДень ", 0, CHUNK)
+                if cut < 100:  # не нашли — режем по символу
+                    cut = CHUNK
+                chunks.append(remaining[:cut])
+                remaining = remaining[cut:]
+            chunks.append(remaining)
+            for i, chunk in enumerate(chunks):
+                await _send_chunk(chunk)
+                if i < len(chunks) - 1:
+                    await asyncio.sleep(0.5)
     else:
         await m.answer(
             "Профиль сохранён ✅\nДиету пришлю чуть позже — напиши *составь мне диету*",
