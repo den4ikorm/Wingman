@@ -438,8 +438,11 @@ async def handle_chat(message: types.Message):
     # Получаем историю для контекста
     history = db.get_recent_history(limit=20)
 
+    # Typing пока Gemini думает
+    await message.bot.send_chat_action(user_id, "typing")
+
     ai = GeminiEngine(profile)
-    reply = ai.chat(user_text, history=history[:-1])  # последнее уже в user_text
+    reply = ai.chat(user_text, history=history[:-1])
 
     # Сохраняем ответ бота
     db.save_message("assistant", reply)
