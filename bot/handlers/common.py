@@ -614,7 +614,7 @@ async def handle_chat(message: types.Message):
                 EventBus(user_id, db).emit("checkin_done")
             except Exception:
                 pass
-        await message.answer(reply)
+        await message.answer(reply, parse_mode="Markdown")
     except Exception as _oe:
         err_str = str(_oe)
         # При 429 — не делаем fallback, просто сообщаем пользователю
@@ -631,7 +631,7 @@ async def handle_chat(message: types.Message):
             db.save_message("assistant", reply)
             if "[FEATURE]" in reply:
                 db.log_insight(reply)
-            await message.answer(reply)
+            await message.answer(reply, parse_mode="Markdown")
         except Exception as _fe:
             logger.error(f"Fallback also failed: {_fe}")
             await message.answer("⚠️ Что-то пошло не так, попробуй ещё раз.")

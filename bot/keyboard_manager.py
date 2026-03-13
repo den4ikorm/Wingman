@@ -250,9 +250,20 @@ async def handle_nav(message: types.Message):
     text = message.text
 
     # Алиасы → нормализуем
+    # Кнопка "Вес" — сразу показываем субменю прогресса с инструкцией
+    if text in ("⚖️ Вес (!)", "⚖️ Вес"):
+        caption, kb = SUBMENUS["💪 Прогресс"]
+        alert = ""
+        if text == "⚖️ Вес (!)":
+            alert = "⚠️ _Вес не вносился 2+ дня_\n\n"
+        await message.answer(
+            alert + caption,
+            parse_mode="Markdown",
+            reply_markup=kb
+        )
+        return
+
     aliases = {
-        "⚖️ Вес (!)": "💪 Прогресс",
-        "⚖️ Вес":     "💪 Прогресс",
         "☀️ Доброе утро": "☀️ Сегодня",
         "🌙 Добрый вечер": "🌙 Вечер",
     }
@@ -303,14 +314,42 @@ async def handle_nav_cb(cb: types.CallbackQuery):
     if not cmd:
         return
 
-    # Отправляем как будто пользователь написал команду
-    if cmd.startswith("/") or cmd == "анкета":
-        # Эмулируем — просто подсказываем
+    # Специальные обработчики — выполняем сразу
+    if action == "nav_weight":
         await cb.message.answer(
-            f"Напиши `{cmd}` или нажми кнопку ещё раз",
-            parse_mode="Markdown"
+            "⚖️ *Внести вес*\n\nНапиши число — например:\n`/weight 78.5`",
+            parse_mode="Markdown",
+            reply_markup=after_weight_kb()
         )
-    elif cmd in ("🍽 Питание", "💪 Прогресс"):
+        return
+
+    if action == "nav_profile":
+        from bot.handlers.common import cmd_profile
+        await cmd_profile(cb.message)
+        return
+
+    if action == "nav_streak":
+        from bot.handlers.common import cmd_streak
+        await cmd_streak(cb.message)
+        return
+
+    if action == "nav_survey":
+        from bot.handlers.survey import cmd_start_survey
+        # Эмулируем Message с нужным user
+        await cb.message.answer("Начинаю новую анкету — напиши /start")
+        return
+
+    if cmd.startswith("/") or cmd == "анкета":
+        # Отправляем команду как текст чтобы роутер её подхватил
+        fake = cb.message.model_copy(update={"text": cmd})
+        try:
+            from aiogram import Bot
+            await cb.bot.send_message(cb.from_user.id, cmd)
+        except Exception:
+            await cb.message.answer(f"Напиши `{cmd}`", parse_mode="Markdown")
+        return
+
+    if cmd in ("🍽 Питание", "💪 Прогресс"):
         # Показываем вложенное субменю
         caption, kb = SUBMENUS[cmd]
         await cb.message.answer(caption, parse_mode="Markdown", reply_markup=kb)
