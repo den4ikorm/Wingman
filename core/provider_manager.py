@@ -43,6 +43,9 @@ class GroqKeyManager:
             logger.warning("GroqKeyManager: ключи не найдены")
 
     def get_key(self) -> str | None:
+        # БАГ 4 FIX: lazy reload если ключей нет (Railway ENV может загрузиться позже)
+        if not self._keys:
+            self._load()
         if not self._keys:
             return None
         return self._keys[self._idx % len(self._keys)]
@@ -204,9 +207,16 @@ class ProviderManager:
             return None
 
 
-# Singleton
-_pm = ProviderManager()
+# Lazy singleton — создаётся при первом вызове, не при импорте
+_pm: "ProviderManager | None" = None
+
+
+def _get_pm() -> "ProviderManager":
+    global _pm
+    if _pm is None:
+        _pm = ProviderManager()
+    return _pm
 
 
 async def generate(system: str, text: str, max_tokens: int = 1200) -> str:
-    return await _pm.generate(system, text, max_tokens)
+    return await _get_pm().generate(system, text, max_tokens)

@@ -239,8 +239,21 @@ def setup_weekly_scheduler(bot, db_get_all_users_fn):
             logger.error(f"WeeklySummary scheduler error: {e}")
 
     import asyncio
+
+    try:
+        _loop = asyncio.get_event_loop()
+    except RuntimeError:
+        _loop = asyncio.new_event_loop()
+
+    def _schedule_run():
+        # БАГ 3 FIX: run_coroutine_threadsafe вместо create_task
+        if _loop.is_running():
+            asyncio.run_coroutine_threadsafe(_run_all(), _loop)
+        else:
+            logger.warning("WeeklySummary: event loop not running, skipping")
+
     scheduler.add_job(
-        lambda: asyncio.create_task(_run_all()),
+        _schedule_run,
         "cron",
         day_of_week="sun",
         hour=20,

@@ -322,12 +322,25 @@ def setup_healer_scheduler(bot):
     healer = HealerAgent(bot=bot)
     set_healer(healer)
 
+    # БАГ 3 FIX: сохраняем loop при инициализации (вызывается из async контекста)
+    # run_coroutine_threadsafe безопасен из синхронного треда APScheduler
+    try:
+        _loop = asyncio.get_event_loop()
+    except RuntimeError:
+        _loop = asyncio.new_event_loop()
+
     async def _run():
         if not _healer_paused:
             await healer.run_check()
 
+    def _schedule_run():
+        if _loop.is_running():
+            asyncio.run_coroutine_threadsafe(_run(), _loop)
+        else:
+            logger.warning("HealerAgent: event loop not running, skipping")
+
     scheduler.add_job(
-        lambda: asyncio.create_task(_run()),
+        _schedule_run,
         "interval",
         minutes=10,
         id="healer_check",

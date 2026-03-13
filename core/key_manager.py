@@ -72,8 +72,13 @@ class KeyManager:
             logger.error("KeyManager: НЕТ КЛЮЧЕЙ! Проверь GEMINI_KEY_1 в ENV")
 
     def get_key(self) -> str:
+        # БАГ 2 FIX: lazy reload — если ключей нет, перечитываем ENV
+        # Railway может прогрузить переменные позже чем инициализируется синглтон
         if not self._keys:
-            raise RuntimeError("KeyManager: нет доступных ключей Gemini")
+            logger.warning("KeyManager: ключей нет — пробую reload из ENV")
+            self._load()
+        if not self._keys:
+            raise RuntimeError("KeyManager: нет доступных ключей Gemini. Проверь GEMINI_KEY_1 в Railway Variables")
         return self._keys[self._idx % len(self._keys)]
 
     @property
@@ -118,8 +123,6 @@ class KeyManager:
         return f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "****"
 
 
-_km = KeyManager()
-
-def get_key() -> str:    return _km.get_key()
-def rotate_key() -> str: return _km.rotate()
-def health() -> list[str]: return _km.health_report()
+def get_key() -> str:    return KeyManager().get_key()
+def rotate_key() -> str: return KeyManager().rotate()
+def health() -> list[str]: return KeyManager().health_report()

@@ -47,13 +47,40 @@ async def run_bot():
     setup_weekly_scheduler(bot, get_all_user_ids)
 
     scheduler.start()
-    logging.info("Wingman v3.5-fix started")
+    logging.info("Wingman v3.6 started")
 
+    # БАГ 1 FIX: delete_webhook до polling + graceful shutdown
+    # Это убивает старый polling сессию перед запуском новой
     await bot.delete_webhook(drop_pending_updates=True)
+    await asyncio.sleep(1)  # дать Railway время завершить старый процесс
+
+    # Graceful shutdown по SIGTERM (Railway посылает при редеплое)
+    import signal
+    loop = asyncio.get_running_loop()
+    stop_event = asyncio.Event()
+
+    def _handle_signal():
+        logging.info("SIGTERM received — shutting down gracefully")
+        stop_event.set()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, _handle_signal)
+        except NotImplementedError:
+            pass  # Windows
+
     try:
-        await dp.start_polling(bot)
+        polling_task = asyncio.create_task(dp.start_polling(bot))
+        await asyncio.wait(
+            [polling_task, asyncio.create_task(stop_event.wait())],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
     finally:
+        logging.info("Stopping scheduler and bot session...")
+        scheduler.shutdown(wait=False)
+        await dp.stop_polling()
         await bot.session.close()
+        logging.info("Shutdown complete")
 
 
 def run_web():
