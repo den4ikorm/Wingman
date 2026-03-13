@@ -17,7 +17,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from core.database import MemoryManager
 from core.gemini_ai import GeminiEngine
 from bot.scheduler_logic import setup_user_jobs
-from plugins.idea_factory import get_main_keyboard
+from bot.keyboard_manager import get_main_kb
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -404,7 +404,7 @@ async def s_final(cb: types.CallbackQuery, state: FSMContext):
         "Сейчас готовлю твой персональный план — "
         "диету на 7 дней, список покупок и дашборд.\n\n"
         "⏳ Обычно занимает *1-2 минуты* — просто подожди.",
-        reply_markup=get_main_keyboard(),
+        reply_markup=get_main_kb(user_id),
         parse_mode="Markdown"
     )
 

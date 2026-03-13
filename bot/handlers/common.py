@@ -5,7 +5,8 @@ bot/handlers/common.py
 
 import re
 from aiogram import Router, types, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
+from aiogram.fsm.state import default_state
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
 
@@ -18,12 +19,12 @@ router = Router()
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
-    from plugins.idea_factory import get_main_keyboard
+    from bot.keyboard_manager import get_main_kb
     await message.answer(
         "Привет. Я Wingman — твой проводник по образу жизни 🌿\n\n"
         "Помогу с питанием, планом дня и просто поговорю.\n"
         "Напиши *анкета* чтобы настроить меня под себя.",
-        reply_markup=get_main_keyboard(),
+        reply_markup=get_main_kb(user_id),
         parse_mode="Markdown"
     )
 
@@ -574,7 +575,7 @@ async def cmd_cache_stats(message: types.Message):
     await message.answer("\n".join(lines), parse_mode="Markdown")
 
 
-@router.message(F.text)
+@router.message(F.text, StateFilter(default_state))
 async def handle_chat(message: types.Message):
     user_id = message.from_user.id
     db = MemoryManager(user_id)

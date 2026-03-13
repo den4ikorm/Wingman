@@ -6,6 +6,7 @@ load_dotenv()
 from bot.config import bot, storage, scheduler
 from bot.handlers import survey, common, evening_handler
 from bot.handlers.diet_mode_handler import router as diet_mode_router
+from bot.keyboard_manager import nav_router
 from bot.scheduler_logic import setup_scheduler, setup_nightly_patterns, setup_healer_scheduler
 from core.database import init_db
 from core.pattern_cache import init_pattern_tables
@@ -27,6 +28,7 @@ async def main():
     from bot.handlers import healer_handler
     from bot.handlers import travel_handler
     dp.include_router(survey.router)
+    dp.include_router(nav_router)          # ← умные кнопки
     dp.include_router(evening_handler.router)
     dp.include_router(diet_mode_router)
     dp.include_router(idea_router)
