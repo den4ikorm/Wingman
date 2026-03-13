@@ -557,7 +557,7 @@ async def cmd_cache_stats(message: types.Message):
         for r in stats["patterns"]:
             lines.append(f"  {r['category']}: {r['cnt']} записей, показано {r['uses'] or 0} раз")
     else:
-        lines.append("Шаблонов пока нет — запусти /update\_patterns")
+        lines.append("Шаблонов пока нет — запусти /update_patterns")
 
     lines.append("")
 

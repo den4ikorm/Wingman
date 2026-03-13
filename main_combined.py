@@ -15,6 +15,7 @@ from bot.config import bot, storage, scheduler
 from bot.handlers import survey, common, evening_handler
 from bot.handlers.diet_mode_handler import router as diet_mode_router
 from bot.handlers import healer_handler
+from bot.keyboard_manager import nav_router
 from bot.handlers import travel_handler
 from bot.scheduler_logic import setup_scheduler, setup_nightly_patterns, setup_healer_scheduler
 from core.database import init_db, get_all_user_ids
@@ -32,6 +33,7 @@ async def run_bot():
     dp = Dispatcher(storage=storage)
 
     dp.include_router(survey.router)
+    dp.include_router(nav_router)           # ← умные кнопки (ДО common!)
     dp.include_router(evening_handler.router)
     dp.include_router(diet_mode_router)
     dp.include_router(idea_router)
