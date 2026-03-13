@@ -5,7 +5,8 @@ bot/handlers/common.py
 
 import re
 from aiogram import Router, types, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
+from aiogram.fsm.state import default_state
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
 
@@ -18,12 +19,12 @@ router = Router()
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
-    from plugins.idea_factory import get_main_keyboard
+    from bot.keyboard_manager import get_main_kb
     await message.answer(
         "Привет. Я Wingman — твой проводник по образу жизни 🌿\n\n"
         "Помогу с питанием, планом дня и просто поговорю.\n"
         "Напиши *анкета* чтобы настроить меня под себя.",
-        reply_markup=get_main_keyboard(),
+        reply_markup=get_main_kb(user_id),
         parse_mode="Markdown"
     )
 
@@ -574,7 +575,7 @@ async def cmd_cache_stats(message: types.Message):
     await message.answer("\n".join(lines), parse_mode="Markdown")
 
 
-@router.message(F.text)
+@router.message(F.text, StateFilter(default_state))
 async def handle_chat(message: types.Message):
     user_id = message.from_user.id
     db = MemoryManager(user_id)
@@ -615,12 +616,22 @@ async def handle_chat(message: types.Message):
                 pass
         await message.answer(reply)
     except Exception as _oe:
-        # Fallback на старый GeminiEngine
+        err_str = str(_oe)
+        # При 429 — не делаем fallback, просто сообщаем пользователю
+        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+            logger.warning(f"Orchestrator 429, пропускаем fallback")
+            await message.answer("⚠️ Сервис временно перегружен, попробуй через минуту.")
+            return
+        # При других ошибках — fallback на старый GeminiEngine
         logger.warning(f"Orchestrator failed ({_oe}), fallback to GeminiEngine")
-        history = db.get_recent_history(limit=20)
-        ai = GeminiEngine(profile)
-        reply = ai.chat(user_text, history=history[:-1])
-        db.save_message("assistant", reply)
-        if "[FEATURE]" in reply:
-            db.log_insight(reply)
-        await message.answer(reply)
+        try:
+            history = db.get_recent_history(limit=20)
+            ai = GeminiEngine(profile)
+            reply = ai.chat(user_text, history=history[:-1])
+            db.save_message("assistant", reply)
+            if "[FEATURE]" in reply:
+                db.log_insight(reply)
+            await message.answer(reply)
+        except Exception as _fe:
+            logger.error(f"Fallback also failed: {_fe}")
+            await message.answer("⚠️ Что-то пошло не так, попробуй ещё раз.")
