@@ -171,7 +171,8 @@ async def _generate_idea(profile: dict, topic: str, module_id: int) -> str:
         topic=topic,
     )
     ai = GeminiEngine(profile)
-    return ai._call(prompt, mode="chat")
+    # _call устарел — вызываем async метод напрямую (мы уже в async контексте)
+    return await ai._call_provider(prompt, mode="chat")
 
 
 def _modules_keyboard(topic: str = "") -> InlineKeyboardBuilder:

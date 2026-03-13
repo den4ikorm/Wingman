@@ -71,6 +71,7 @@ async def run_bot():
         except NotImplementedError:
             pass  # Windows
 
+    polling_task = None
     try:
         polling_task = asyncio.create_task(dp.start_polling(bot))
         await asyncio.wait(
@@ -80,7 +81,17 @@ async def run_bot():
     finally:
         logging.info("Stopping scheduler and bot session...")
         scheduler.shutdown(wait=False)
-        await dp.stop_polling()
+        # Отменяем polling_task напрямую — dp.stop_polling() падает если polling не успел стартовать
+        if polling_task and not polling_task.done():
+            polling_task.cancel()
+            try:
+                await polling_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        try:
+            await dp.stop_polling()
+        except RuntimeError:
+            pass  # Polling not started — нормально при конфликте
         await bot.session.close()
         logging.info("Shutdown complete")
 
