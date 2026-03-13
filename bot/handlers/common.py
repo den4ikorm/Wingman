@@ -480,7 +480,79 @@ async def cmd_profile(message: types.Message):
         )
 
 
-# ── ФИДБЕК ─────────────────────────────────────────────────────────────────
+# ── FIX B2a: вспомогательные функции с явным user_id ──────────────────────
+# Вызываются из keyboard_manager.py где from_user — это бот, не пользователь.
+
+async def _profile_for_user(user_id: int, reply_to: types.Message):
+    """Показывает профиль для user_id, отправляет ответ в reply_to чат."""
+    db = MemoryManager(user_id)
+    try:
+        from core.progress_engine import ProgressEngine
+        pe = ProgressEngine(user_id, db)
+        profile = db.get_profile()
+        weight_history = db.get_weight_history(days=90)
+        weight_start = profile.get("weight") if profile else None
+        weight_now   = weight_history[0]["weight"] if weight_history else None
+        card = pe.get_profile_card(
+            weight_start=float(weight_start) if weight_start else None,
+            weight_now=weight_now
+        )
+        insight = pe.get_insight_message()
+        if insight:
+            card += f"\n\n💡 _{insight}_"
+        await reply_to.answer(card, parse_mode="Markdown")
+    except Exception as e:
+        db2 = MemoryManager(user_id)
+        streak = db2.get_current_streak()
+        profile = db2.get_profile() or {}
+        await reply_to.answer(
+            f"👤 *Твой профиль*\n\n"
+            f"Цель: {profile.get('goal', '?')}\n"
+            f"🔥 Серия: {streak} дней\n\nПродолжай — всё идёт хорошо!",
+            parse_mode="Markdown"
+        )
+
+
+async def _streak_for_user(user_id: int, reply_to: types.Message):
+    """Показывает стрик для user_id."""
+    db = MemoryManager(user_id)
+    try:
+        from core.progress_engine import ProgressEngine
+        pe = ProgressEngine(user_id, db)
+        await reply_to.answer(pe.get_streak_message(), parse_mode="Markdown")
+    except Exception:
+        streak = db.get_current_streak()
+        if streak == 0:
+            await reply_to.answer("Начни сегодня — и серия пойдёт! 🔥")
+        else:
+            await reply_to.answer(f"🔥 *{streak} дней подряд!*", parse_mode="Markdown")
+
+
+# ── FIX B4: отдельный handler для недельного меню (не дублирует /plan) ─────
+
+async def cmd_diet_week(user_id: int, reply_to: types.Message):
+    """Генерирует недельное меню — отдельно от ежедневного плана."""
+    db = MemoryManager(user_id)
+    if not db.get_profile():
+        return await reply_to.answer(
+            "Сначала заполни анкету — напиши *анкета*", parse_mode="Markdown"
+        )
+    await reply_to.answer("🥗 Генерирую меню на неделю... ⏳")
+    try:
+        profile = db.get_profile()
+        ai = GeminiEngine(profile)
+        history = db.get_recent_history(limit=5)
+        menu = await ai.generate_weekly_menu(history=history)
+        await reply_to.answer(menu, parse_mode="Markdown")
+    except Exception as e:
+        logger.error(f"cmd_diet_week error: {e}")
+        await reply_to.answer(
+            "🥗 *Меню на неделю*\n\nНе смог сгенерировать прямо сейчас.\n"
+            "Попробуй через минуту или используй /plan для плана на сегодня.",
+            parse_mode="Markdown"
+        )
+
+
 
 @router.message(Command("feedback"))
 async def cmd_feedback(message: types.Message):

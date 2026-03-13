@@ -18,7 +18,8 @@ from google import genai
 from core.persona import PersonaBuilder
 from core.key_manager import KeyManager
 
-MODEL_NAME = "gemini-2.5-flash-lite"
+# FIX B10: исправлено имя модели (gemini-2.5-flash-lite не существует)
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
 logger = logging.getLogger(__name__)
 
 
