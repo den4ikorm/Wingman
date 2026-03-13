@@ -615,12 +615,22 @@ async def handle_chat(message: types.Message):
                 pass
         await message.answer(reply)
     except Exception as _oe:
-        # Fallback на старый GeminiEngine
+        err_str = str(_oe)
+        # При 429 — не делаем fallback, просто сообщаем пользователю
+        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+            logger.warning(f"Orchestrator 429, пропускаем fallback")
+            await message.answer("⚠️ Сервис временно перегружен, попробуй через минуту.")
+            return
+        # При других ошибках — fallback на старый GeminiEngine
         logger.warning(f"Orchestrator failed ({_oe}), fallback to GeminiEngine")
-        history = db.get_recent_history(limit=20)
-        ai = GeminiEngine(profile)
-        reply = ai.chat(user_text, history=history[:-1])
-        db.save_message("assistant", reply)
-        if "[FEATURE]" in reply:
-            db.log_insight(reply)
-        await message.answer(reply)
+        try:
+            history = db.get_recent_history(limit=20)
+            ai = GeminiEngine(profile)
+            reply = ai.chat(user_text, history=history[:-1])
+            db.save_message("assistant", reply)
+            if "[FEATURE]" in reply:
+                db.log_insight(reply)
+            await message.answer(reply)
+        except Exception as _fe:
+            logger.error(f"Fallback also failed: {_fe}")
+            await message.answer("⚠️ Что-то пошло не так, попробуй ещё раз.")

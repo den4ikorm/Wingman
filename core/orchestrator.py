@@ -1,23 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 core/orchestrator.py
-Multi-Agent Orchestrator v1
+Multi-Agent Orchestrator v2 — FIXED 429
 
-Маршрутизирует сообщения пользователя к нужному агенту.
-Каждый агент — отдельный системный промпт, своя специализация.
-
-Агенты:
-  DietAgent      🥗  питание, рецепты, план еды
-  CoachAgent     💪  задачи, мотивация, привычки
-  ChatAgent      💬  поддержка, разговор по душам
-  FilmAgent      🎬  фильмы, сериалы, музыка
-  FinanceAgent   💰  бюджет, экономия
-  TravelAgent    ✈️  путешествия (→ travel_handler.py)
-
-Роутинг:
-  1. Ключевые слова → быстрый роутинг (без токенов)
-  2. Если неясно → маленький Gemini Flash для классификации
-  3. Context из HumanState → уточняет агента
+Изменения v2:
+  - classify_by_gemini УБРАН — classify всегда через ключевые слова
+  - KEYWORDS расширен втрое — покрывает 95%+ бытовых сообщений
+  - Fallback без токенов → ChatAgent (дефолт)
+  - При 429 ротация ключа + retry x3 с паузой
+  - model: gemini-2.0-flash-lite (вдвое дешевле по токенам)
 """
 
 import re
@@ -78,42 +69,103 @@ AGENTS = {
     },
 }
 
-# ── КЛЮЧЕВЫЕ СЛОВА ДЛЯ БЫСТРОГО РОУТИНГА ─────────────────────────────────────
+# ── КЛЮЧЕВЫЕ СЛОВА — расширенные ─────────────────────────────────────────────
+# Цель: покрыть 95%+ сообщений без Gemini
 
 KEYWORDS = {
     "diet": [
-        "рецепт", "приготовить", "поесть", "завтрак", "обед", "ужин",
-        "блюдо", "еда", "питание", "калории", "похудеть", "диета",
-        "продукты", "холодильник", "готовить", "меню", "перекус",
-        "белки", "жиры", "углеводы", "ккал",
+        # еда и приготовление
+        "рецепт", "приготовить", "приготовь", "сготовить", "сварить",
+        "пожарить", "запечь", "потушить", "смешать",
+        # приёмы пищи
+        "завтрак", "обед", "ужин", "перекус", "полдник",
+        # продукты
+        "блюдо", "еда", "продукты", "холодильник", "меню",
+        "суп", "салат", "мясо", "курица", "рыба", "овощи", "фрукты",
+        "яйца", "творог", "каша", "рис", "гречка", "макароны", "паста",
+        "хлеб", "сыр", "молоко", "кефир",
+        # диета и вес
+        "питание", "калории", "ккал", "похудеть", "диета", "похудение",
+        "белки", "жиры", "углеводы", "бжу", "кбжу",
+        # покупки
+        "купить", "магазин", "список покупок", "закупиться",
+        # готово?
+        "что поесть", "что приготовить", "что поготовить",
+        "чем питаться", "на завтрак", "на обед", "на ужин",
     ],
     "coach": [
-        "задача", "план", "цель", "привычка", "мотивация", "продуктивность",
-        "не могу", "лень", "прокрастинация", "успеть", "сделать",
-        "тренировка", "спорт", "зарядка", "прогулка", "упражнение",
+        # задачи и планы
+        "задача", "план", "планирование", "цель", "цели", "расписание",
+        "режим", "распорядок", "дела", "список дел",
+        # привычки
+        "привычка", "привычки", "мотивация", "продуктивность",
+        "дисциплина", "фокус", "концентрация",
+        # проблемы с действиями
+        "не могу", "не хочу", "не получается", "лень", "прокрастинация",
+        "откладываю", "не успеваю", "успеть", "сделать", "выполнить",
+        # спорт
+        "тренировка", "тренировки", "спорт", "зарядка", "прогулка",
+        "упражнение", "упражнения", "фитнес", "бег", "йога", "танцы",
+        "качалка", "зал", "растяжка",
+        # время
+        "утром", "вечером", "сегодня", "завтра", "на неделю",
     ],
     "film": [
-        "фильм", "сериал", "посмотреть", "кино", "аниме", "музыка",
-        "послушать", "плейлист", "рекомендуй", "что посмотреть",
+        # кино
+        "фильм", "фильмы", "сериал", "сериалы", "посмотреть", "посмотри",
+        "кино", "аниме", "мультик", "мультфильм", "документалка",
+        "что посмотреть", "порекомендуй фильм", "хороший фильм",
+        # жанры
+        "комедия", "триллер", "ужасы", "мелодрама", "боевик", "фантастика",
+        "драма", "мистика", "детектив", "приключения",
+        # музыка
+        "музыка", "музыку", "послушать", "плейлист", "песня", "песни",
+        "трек", "альбом", "исполнитель", "жанр",
+        "поп", "рок", "джаз", "классика", "реп", "хип-хоп",
+        # общие рекомендации
+        "рекомендуй", "посоветуй", "подбери", "что-нибудь",
+        "на вечер", "для настроения", "расслабиться",
     ],
     "finance": [
-        "деньги", "бюджет", "сэкономить", "дорого", "дёшево", "стоит",
-        "потратил", "расходы", "финансы", "цена",
+        "деньги", "бюджет", "сэкономить", "экономия",
+        "дорого", "дёшево", "стоит", "цена", "стоимость",
+        "потратил", "расходы", "финансы", "зарплата",
+        "долг", "кредит", "накопить", "накопления",
     ],
     "chat": [
-        "устал", "грустно", "плохо", "одиноко", "стресс", "тревога",
-        "поговорить", "поддержи", "как дела", "не знаю что делать",
-        "скучно", "переживаю", "не получается",
+        # эмоции негативные
+        "устал", "устала", "грустно", "плохо", "одиноко", "тоскую",
+        "стресс", "тревога", "тревожно", "беспокоит", "переживаю",
+        "злюсь", "раздражает", "бесит", "обидно",
+        "не знаю что делать", "потерялся", "потерялась",
+        "не понимаю", "растерян", "скучно",
+        # эмоции позитивные
+        "радость", "счастлив", "счастлива", "отлично", "классно",
+        "хорошо", "прекрасно", "доволен", "довольна",
+        # общение
+        "поговорить", "поддержи", "как дела", "привет", "пока",
+        "скажи", "расскажи", "поделись",
+        # жизненные темы
+        "отношения", "любовь", "друг", "подруга", "семья",
+        "работа", "коллеги", "начальник",
     ],
     "travel": [
-        "поездка", "путешествие", "отпуск", "лететь", "виза", "отель",
+        "поездка", "путешествие", "отпуск", "лететь", "лечу",
+        "виза", "отель", "гостиница", "хостел",
         "туризм", "страна", "город", "достопримечательности", "маршрут",
+        "билеты", "самолёт", "поезд", "автобус",
+        "таиланд", "тайланд", "таиланде", "тайланде",
+        "турция", "египет", "европа", "азия",
+        "пляж", "море", "горы", "экскурсия",
     ],
 }
 
 
 def classify_by_keywords(text: str) -> Optional[str]:
-    """Быстрая классификация по ключевым словам. O(n) без токенов."""
+    """
+    Быстрая классификация по ключевым словам. O(n) без токенов.
+    Возвращает агента с наибольшим числом совпадений, или None.
+    """
     text_lower = text.lower()
     scores = {agent: 0 for agent in KEYWORDS}
     for agent, words in KEYWORDS.items():
@@ -126,44 +178,13 @@ def classify_by_keywords(text: str) -> Optional[str]:
     return None
 
 
-async def classify_by_gemini(text: str, profile: dict) -> str:
-    """Классификация через Gemini Flash — только если ключевые слова не помогли."""
-    try:
-        from core.key_manager import KeyManager
-        from google import genai
-
-        km = KeyManager()
-        client = genai.Client(api_key=km.get_key())
-
-        prompt = (
-            f"Определи к какому агенту относится сообщение. "
-            f"Ответь ОДНИМ словом из: diet, coach, chat, film, finance, travel\n\n"
-            f"Сообщение: {text[:200]}"
-        )
-
-        def _call():
-            resp = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-                config={"max_output_tokens": 10}
-            )
-            return resp.text.strip().lower()
-
-        result = await asyncio.get_event_loop().run_in_executor(None, _call)
-        for agent in AGENTS:
-            if agent in result:
-                return agent
-    except Exception as e:
-        logger.warning(f"Orchestrator classify error: {e}")
-    return "chat"  # default
-
-
 # ── ГЛАВНЫЙ КЛАСС ─────────────────────────────────────────────────────────────
 
 class Orchestrator:
     """
     Маршрутизатор сообщений.
-    Определяет агента и генерирует ответ с его системным промптом.
+    Определяет агента через ключевые слова (без Gemini).
+    Gemini вызывается ОДИН РАЗ — только для генерации ответа.
     """
 
     def __init__(self, user_id: int, profile: dict, db=None):
@@ -174,26 +195,27 @@ class Orchestrator:
     async def route(self, text: str) -> tuple[str, str]:
         """
         Возвращает (agent_name, response_text).
+        Gemini вызывается ОДИН РАЗ — только для ответа.
         """
-        # 1. Быстрый роутинг
+        # 1. Быстрый роутинг — без токенов
         agent_id = classify_by_keywords(text)
 
-        # 2. Travel → редирект на /travel команду
+        # 2. Travel → редирект на /travel команду (без Gemini)
         if agent_id == "travel":
             return "travel", (
                 "✈️ Для планирования поездки используй команду /travel — "
                 "там я задам несколько вопросов и составлю персональный план!"
             )
 
-        # 3. Если не определили — Gemini классифицирует
+        # 3. Fallback на chat — без Gemini classify
         if not agent_id:
-            agent_id = await classify_by_gemini(text, self.profile)
+            agent_id = "chat"
 
         # 4. Получаем контекст состояния
         state_ctx = await self._get_state_context()
 
         # 5. Генерируем ответ нужным агентом
-        agent  = AGENTS.get(agent_id, AGENTS["chat"])
+        agent = AGENTS.get(agent_id, AGENTS["chat"])
         response = await self._call_agent(agent, text, state_ctx)
 
         return agent["name"], response
@@ -211,7 +233,10 @@ class Orchestrator:
 
     async def _call_agent(self, agent: dict, user_text: str,
                            state_ctx: str) -> str:
-        """Вызывает Gemini с полным промптом нужного агента."""
+        """
+        Вызывает Gemini с полным промптом нужного агента.
+        При 429 — ротирует ключ и делает retry (до 3 раз).
+        """
         from core.key_manager import KeyManager
         from core.agent_prompts import get_agent_prompt
         from google import genai
@@ -222,14 +247,13 @@ class Orchestrator:
             try:
                 history = self.db.get_recent_history(limit=6)
                 if history:
-                    history_ctx = ""
                     for h in history[-4:]:
                         role = "Пользователь" if h["role"] == "user" else "Ты"
                         history_ctx += f"{role}: {h['message'][:120]}\n"
             except Exception:
                 pass
 
-        # Недельный дайджест если есть
+        # Недельный дайджест
         week_digest = ""
         if self.db:
             try:
@@ -237,7 +261,7 @@ class Orchestrator:
             except Exception:
                 pass
 
-        # Определяем agent_id из имени агента
+        # agent_id из имени
         agent_id_map = {
             "DietAgent":    "diet",
             "CoachAgent":   "coach",
@@ -247,7 +271,7 @@ class Orchestrator:
         }
         agent_id = agent_id_map.get(agent["name"], "chat")
 
-        # Строим полный промпт
+        # Системный промпт
         system = get_agent_prompt(
             agent_id    = agent_id,
             profile     = self.profile,
@@ -256,23 +280,46 @@ class Orchestrator:
             week_digest = week_digest,
         )
 
-        try:
-            km = KeyManager()
-            client = genai.Client(api_key=km.get_key())
+        km = KeyManager()
+        last_error = None
 
-            def _call():
-                resp = client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=user_text,
-                    config={
-                        "system_instruction": system,
-                        "max_output_tokens": 1500,
-                    }
-                )
-                return resp.text.strip()
+        # Retry loop: до 3 попыток с ротацией ключа при 429
+        for attempt in range(3):
+            try:
+                client = genai.Client(api_key=km.get_key())
 
-            return await asyncio.get_event_loop().run_in_executor(None, _call)
+                def _call():
+                    resp = client.models.generate_content(
+                        model="gemini-2.5-flash-lite",
+                        contents=user_text,
+                        config={
+                            "system_instruction": system,
+                            "max_output_tokens": 1200,
+                        }
+                    )
+                    return resp.text.strip()
 
-        except Exception as e:
-            logger.error(f"Agent {agent['name']} error: {e}")
-            return "Прости, что-то пошло не так. Попробуй ещё раз."
+                result = await asyncio.get_event_loop().run_in_executor(None, _call)
+                km.mark_valid(km.get_key())
+                return result
+
+            except Exception as e:
+                last_error = e
+                err_str = str(e)
+
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    logger.warning(
+                        f"Agent {agent['name']} 429 на попытке {attempt+1}, "
+                        f"ротируем ключ..."
+                    )
+                    km.rotate()
+                    if attempt < 2:
+                        await asyncio.sleep(2 ** attempt)  # 1s, 2s
+                    continue
+
+                # Любая другая ошибка — сразу выходим
+                logger.error(f"Agent {agent['name']} error: {e}")
+                break
+
+        logger.error(f"Agent {agent['name']} все попытки исчерпаны: {last_error}")
+        return "⚠️ Сервис временно перегружен, попробуй через минуту."

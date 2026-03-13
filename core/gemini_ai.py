@@ -10,7 +10,7 @@ from google import genai
 from core.persona import PersonaBuilder
 from core.key_manager import KeyManager
 
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-2.5-flash-lite"
 logger = logging.getLogger(__name__)
 
 
@@ -121,8 +121,11 @@ class GeminiEngine:
             except Exception as e:
                 err = str(e)
                 if "429" in err or "quota" in err.lower() or "rate" in err.lower():
+                    # Ротируем ключ — НЕ блокируем event loop
+                    # _call вызывается через asyncio.to_thread(), поэтому
+                    # обычный sleep здесь ок (мы уже в отдельном потоке)
                     import time
-                    wait = min(10 * (attempt + 1), 30)
+                    wait = min(3 * (attempt + 1), 10)  # 3s, 6s, 9s — не 30s
                     logger.warning(f"Rate limit на ключе {attempt+1}, ротирую, жду {wait}s...")
                     self._key_manager.rotate()
                     self._make_client()
