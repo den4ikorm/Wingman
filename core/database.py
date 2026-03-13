@@ -13,7 +13,7 @@ from datetime import datetime, date, timedelta
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = os.getenv("DB_PATH", "./data/wingman.db")
+DB_PATH = os.getenv("DB_PATH", "/mnt/data/wingman.db")
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 _lock = threading.Lock()

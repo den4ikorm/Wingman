@@ -239,7 +239,6 @@ class Orchestrator:
         """
         from core.key_manager import KeyManager
         from core.agent_prompts import get_agent_prompt
-        from google import genai
 
         # История диалога
         history_ctx = ""
@@ -280,46 +279,6 @@ class Orchestrator:
             week_digest = week_digest,
         )
 
-        km = KeyManager()
-        last_error = None
-
-        # Retry loop: до 3 попыток с ротацией ключа при 429
-        for attempt in range(3):
-            try:
-                client = genai.Client(api_key=km.get_key())
-
-                def _call():
-                    resp = client.models.generate_content(
-                        model="gemini-2.5-flash-lite",
-                        contents=user_text,
-                        config={
-                            "system_instruction": system,
-                            "max_output_tokens": 1200,
-                        }
-                    )
-                    return resp.text.strip()
-
-                result = await asyncio.get_event_loop().run_in_executor(None, _call)
-                km.mark_valid(km.get_key())
-                return result
-
-            except Exception as e:
-                last_error = e
-                err_str = str(e)
-
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                    logger.warning(
-                        f"Agent {agent['name']} 429 на попытке {attempt+1}, "
-                        f"ротируем ключ..."
-                    )
-                    km.rotate()
-                    if attempt < 2:
-                        await asyncio.sleep(2 ** attempt)  # 1s, 2s
-                    continue
-
-                # Любая другая ошибка — сразу выходим
-                logger.error(f"Agent {agent['name']} error: {e}")
-                break
-
-        logger.error(f"Agent {agent['name']} все попытки исчерпаны: {last_error}")
-        return "⚠️ Сервис временно перегружен, попробуй через минуту."
+        # ProviderManager — каскад Gemini → Groq → OpenRouter
+        from core.provider_manager import generate as pm_generate
+        return await pm_generate(system, user_text, max_tokens=1200)
