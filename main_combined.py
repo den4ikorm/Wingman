@@ -56,6 +56,9 @@ async def run_bot():
     from core.weekly_summary import setup_weekly_scheduler
     setup_weekly_scheduler(bot, get_all_user_ids)
 
+    from core.course_orchestrator import setup_course_scheduler
+    setup_course_scheduler(bot, get_all_user_ids)
+
     scheduler.start()
     from bot.config import REDIS_URL
     storage_type = "Redis ✅" if REDIS_URL else "Memory ⚠️"

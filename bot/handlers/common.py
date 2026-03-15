@@ -1088,3 +1088,68 @@ async def handle_chat(message: types.Message):
         except Exception as _fe:
             logger.error(f"Fallback also failed: {_fe}")
             await message.answer("⚠️ Что-то пошло не так, попробуй ещё раз.")
+
+
+# ── Course Orchestrator API ────────────────────────────────────────────────
+
+@router.message(Command("thought"))
+async def cmd_thought(message: types.Message):
+    """Мысль дня — для теста. В продакшне приходит автоматически в 8:00."""
+    user_id = message.from_user.id
+    msg = await message.answer("✦ ...")
+    try:
+        from core.course_orchestrator import CourseOrchestrator
+        orch = CourseOrchestrator(user_id)
+        thought = await orch.get_thought()
+        await msg.edit_text(f"✦ {thought}")
+    except Exception as e:
+        await msg.edit_text("Не удалось получить мысль дня.")
+
+
+@router.message(Command("story"))
+async def cmd_story(message: types.Message):
+    """История дня."""
+    user_id = message.from_user.id
+    msg = await message.answer("✦ Пишу историю...")
+    try:
+        from core.course_orchestrator import CourseOrchestrator
+        orch = CourseOrchestrator(user_id)
+        story = await orch.get_story()
+        text = story.get("text", "")
+        author = story.get("author", "")
+        await msg.edit_text(
+            f"✦ {text}\n\n_{author}_",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        await msg.edit_text("Не удалось получить историю.")
+
+
+@router.callback_query(F.data.startswith("course_"))
+async def cb_course(cb: types.CallbackQuery):
+    """Обработка действий курса из WebApp."""
+    await cb.answer()
+    action = cb.data.replace("course_", "")
+    user_id = cb.from_user.id
+
+    if action == "thought":
+        try:
+            from core.course_orchestrator import CourseOrchestrator
+            orch = CourseOrchestrator(user_id)
+            thought = await orch.get_thought()
+            await cb.message.answer(f"✦ {thought}")
+        except Exception:
+            await cb.message.answer("Попробуй позже.")
+
+    elif action == "story":
+        try:
+            from core.course_orchestrator import CourseOrchestrator
+            orch = CourseOrchestrator(user_id)
+            story = await orch.get_story()
+            await cb.message.answer(
+                f"✦ {story.get('text', '')}\n\n_{story.get('author', '')}_",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            await cb.message.answer("Попробуй позже.")
+
