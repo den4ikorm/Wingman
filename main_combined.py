@@ -17,7 +17,12 @@ from bot.handlers.diet_mode_handler import router as diet_mode_router
 from bot.handlers import healer_handler
 from bot.keyboard_manager import nav_router
 from bot.handlers import travel_handler
-from bot.handlers import movie_handler
+try:
+    from bot.handlers import movie_handler
+    _has_movie = True
+except ImportError:
+    movie_handler = None
+    _has_movie = False
 from bot.scheduler_logic import setup_scheduler, setup_nightly_patterns, setup_healer_scheduler
 from core.database import init_db, get_all_user_ids
 from core.pattern_cache import init_pattern_tables
@@ -40,7 +45,8 @@ async def run_bot():
     dp.include_router(idea_router)
     dp.include_router(healer_handler.router)
     dp.include_router(travel_handler.router)
-    dp.include_router(movie_handler.router)
+    if _has_movie and movie_handler:
+        dp.include_router(movie_handler.router)
     dp.include_router(common.router)   # common — последним (ловит всё остальное)
 
     setup_scheduler()
