@@ -3,21 +3,27 @@
 plugins/idea_factory.py
 Idea Factory v2.1 — кнопка "💡 Идея" везде + FSM-флоу
 
-FIXES:
-  B8  — добавлен StateFilter(default_state) ко всем входным handlers
-  B9  — удалена дублирующая get_main_keyboard() (используем keyboard_manager)
-  #04 — добавлен ru_name для всех 20 модулей (кнопки на русском)
+Флоу:
+  Кнопка "💡 Идея"
+    → [Быстрая идея] [Выбрать модуль] [Пайплайн]
+      → Быстрая: бот просит тему → авто-генерация
+      → Выбрать: показывает 20 модулей → просит тему → генерация
+      → Пайплайн: просит тему → 5 модулей → топ-3
+
+Подключение в bot/main.py:
+  from plugins.idea_factory import router as idea_router, get_main_keyboard
+  dp.include_router(idea_router)
 """
 
 import re
 import logging
 from datetime import datetime
 from aiogram import Router, types, F
-from aiogram.filters import Command, StateFilter
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup, default_state
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
-from aiogram.types import InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 from core.database import MemoryManager
 from core.gemini_ai import GeminiEngine
@@ -26,62 +32,79 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
+# ── REPLY KEYBOARD (постоянная кнопка внизу) ──────────────────────────
+
+def get_main_keyboard() -> ReplyKeyboardMarkup:
+    """Постоянная клавиатура с кнопкой Идея внизу экрана."""
+    builder = ReplyKeyboardBuilder()
+    builder.row(
+        KeyboardButton(text="💡 Идея"),
+        KeyboardButton(text="📋 Задачи"),
+        KeyboardButton(text="🛒 Покупки"),
+    )
+    builder.row(
+        KeyboardButton(text="⚖️ Вес"),
+        KeyboardButton(text="🌙 Итоги дня"),
+        KeyboardButton(text="📊 Прогресс"),
+    )
+    return builder.as_markup(resize_keyboard=True, persistent=True)
+
+
 # ── FSM ────────────────────────────────────────────────────────────────
 
 class IdeaStates(StatesGroup):
-    waiting_topic_auto     = State()
-    waiting_topic_module   = State()
-    choosing_module        = State()
-    waiting_topic_pipeline = State()
+    waiting_topic_auto     = State()  # быстрая идея
+    waiting_topic_module   = State()  # выбор модуля — сначала выбрали модуль
+    choosing_module        = State()  # ещё не выбрал модуль
+    waiting_topic_pipeline = State()  # пайплайн
 
 
 # ════════════════════════════════════════════════════════════════════════
-# 20 СУБМОДУЛЕЙ МЫШЛЕНИЯ — FIX #04: добавлен ru_name для UI
+# 20 СУБМОДУЛЕЙ МЫШЛЕНИЯ
 # ════════════════════════════════════════════════════════════════════════
 
 THINKING_MODULES = {
-    1:  {"name": "Cross-Domain Fusion",   "ru_name": "Кросс-доменный синтез",  "tag": "FUSION",  "emoji": "🔀",
+    1:  {"name": "Cross-Domain Fusion",   "tag": "FUSION",  "emoji": "🔀",
          "instruction": "Найди неочевидную связь между ДВУМЯ разными технологическими доменами. Применяй принципы одной области к проблемам другой. Результат: гибридное решение."},
-    2:  {"name": "Trend-Wave Predictor",  "ru_name": "Предиктор трендов",       "tag": "TREND",   "emoji": "📈",
+    2:  {"name": "Trend-Wave Predictor",  "tag": "TREND",   "emoji": "📈",
          "instruction": "Экстраполируй текущие IT/бизнес-тренды на 2-3 года вперёд. Опиши продукт для будущего рынка."},
-    3:  {"name": "Problem-Solver",        "ru_name": "Решатель проблем",        "tag": "PAIN",    "emoji": "🎯",
+    3:  {"name": "Problem-Solver",        "tag": "PAIN",    "emoji": "🎯",
          "instruction": "Найди реальную боль пользователей. Сформулируй: 'Меня бесит что X, потому что Y'. Предложи MVP который устраняет боль за 1 шаг."},
-    4:  {"name": "Sci-Fi Prototype",      "ru_name": "Sci-Fi прототип",         "tag": "SCIFI",   "emoji": "🚀",
+    4:  {"name": "Sci-Fi Prototype",      "tag": "SCIFI",   "emoji": "🚀",
          "instruction": "Представь технологию из sci-fi. Определи что реализуемо СЕГОДНЯ с Python+API. Спроектируй MVP с 30% фантастики."},
-    5:  {"name": "Resource-Constrained",  "ru_name": "MVP за $0",               "tag": "LEAN",    "emoji": "💸",
+    5:  {"name": "Resource-Constrained",  "tag": "LEAN",    "emoji": "💸",
          "instruction": "MVP за $0: Python + бесплатные API + Termux/Android. 1 разработчик, 1 неделя. Первые 10 пользователей без денег."},
-    6:  {"name": "Bionic Design",         "ru_name": "Бионический дизайн",      "tag": "BIONIC",  "emoji": "🧬",
+    6:  {"name": "Bionic Design",         "tag": "BIONIC",  "emoji": "🧬",
          "instruction": "Скопируй архитектурное решение из природы в ПО. Нейросети ← мозг. Ant Colony ← маршрутизация."},
-    7:  {"name": "Anti-Pattern",          "ru_name": "Анти-паттерн",            "tag": "ANTI",    "emoji": "🔄",
+    7:  {"name": "Anti-Pattern",          "tag": "ANTI",    "emoji": "🔄",
          "instruction": "Сделай всё НАОБОРОТ. Если все в облаке — локально. Если много функций — одна. Почему инверсия = преимущество?"},
-    8:  {"name": "Micro-SaaS",            "ru_name": "Микро-SaaS",              "tag": "MSAAS",   "emoji": "💡",
+    8:  {"name": "Micro-SaaS",            "tag": "MSAAS",   "emoji": "💡",
          "instruction": "Нишевый продукт: $500-5000 MRR, 1 разработчик. НЕ 'CRM для всех' а 'CRM для татуировщиков'. ЦА + боль + ценообразование."},
-    9:  {"name": "Gamification Engine",   "ru_name": "Геймификация",            "tag": "GAME",    "emoji": "🎮",
+    9:  {"name": "Gamification Engine",   "tag": "GAME",    "emoji": "🎮",
          "instruction": "Геймифицируй скучный процесс. XP, уровни, ежедневные квесты. Как механики влияют на поведение?"},
-    10: {"name": "Eco-Systemic",          "ru_name": "Эко-система данных",      "tag": "ECO",     "emoji": "♻️",
+    10: {"name": "Eco-Systemic",          "tag": "ECO",     "emoji": "♻️",
          "instruction": "Циркулярная экономика данных. Отходы одного процесса = ресурс другого. Логи ошибок → обучающий датасет."},
-    11: {"name": "Emotional AI",          "ru_name": "Эмоциональный ИИ",        "tag": "EMO",     "emoji": "🧠",
+    11: {"name": "Emotional AI",          "tag": "EMO",     "emoji": "🧠",
          "instruction": "ИИ с эмпатией. Система меняет поведение при усталости/стрессе/вдохновении. Как технически через API?"},
-    12: {"name": "Legacy Reviver",        "ru_name": "Реанимация легаси",       "tag": "LEGACY",  "emoji": "🏛️",
+    12: {"name": "Legacy Reviver",        "tag": "LEGACY",  "emoji": "🏛️",
          "instruction": "Дай жизнь старой технологии через AI-обёртку. RSS + AI = умный агрегатор. COBOL + LLM = банковский интерфейс."},
-    13: {"name": "Chaos Engineering",     "ru_name": "Хаос-инжиниринг",         "tag": "CHAOS",   "emoji": "⚡",
+    13: {"name": "Chaos Engineering",     "tag": "CHAOS",   "emoji": "⚡",
          "instruction": "Система намеренно ломает себя для проверки устойчивости. Netflix Chaos Monkey. Антихрупкость."},
-    14: {"name": "Local-First",           "ru_name": "Локально-первый",         "tag": "LOCAL",   "emoji": "📱",
+    14: {"name": "Local-First",           "tag": "LOCAL",   "emoji": "📱",
          "instruction": "Весь AI на устройстве без сети. SQLite + llama.cpp + Termux. Данные не покидают устройство."},
-    15: {"name": "Educational Sim",       "ru_name": "Образовательный симулятор","tag": "EDU",     "emoji": "🎓",
+    15: {"name": "Educational Sim",       "tag": "EDU",     "emoji": "🎓",
          "instruction": "Обучение через симуляции. Ошибка = лучший учитель. Бизнес-симулятор в чате. CTF для разработчиков."},
-    16: {"name": "Security Guard",        "ru_name": "Страж безопасности",      "tag": "SEC",     "emoji": "🛡️",
+    16: {"name": "Security Guard",        "tag": "SEC",     "emoji": "🛡️",
          "instruction": "Превентивная безопасность ДО атаки. Honeypot, поведенческий анализ, аномалии в трафике."},
-    17: {"name": "Zero-Waste Logistics",  "ru_name": "Логистика без отходов",   "tag": "ZWL",     "emoji": "🚚",
+    17: {"name": "Zero-Waste Logistics",  "tag": "ZWL",     "emoji": "🚚",
          "instruction": "Оптимизация маршрутов. Travelling Salesman, Vehicle Routing. -20-30% время/расход/простои."},
-    18: {"name": "AI-Agent Specialist",   "ru_name": "ИИ-агент специалист",     "tag": "AGENTS",  "emoji": "🤖",
+    18: {"name": "AI-Agent Specialist",   "tag": "AGENTS",  "emoji": "🤖",
          "instruction": "Узкий ИИ-эксперт: юрист/бухгалтер/QA. Знает контекст компании, автономен, отчитывается. LLM + RAG + tools."},
-    19: {"name": "Bio-Hacking",           "ru_name": "Биохакинг",               "tag": "BIO",     "emoji": "💪",
+    19: {"name": "Bio-Hacking",           "tag": "BIO",     "emoji": "💪",
          "instruction": "ПО + носимые устройства + биометрика. Пульс, ЧСС, сон. Адаптация среды под физиологию."},
-    20: {"name": "Ethical AI",            "ru_name": "Этичный ИИ",              "tag": "ETHICS",  "emoji": "⚖️",
+    20: {"name": "Ethical AI",            "tag": "ETHICS",  "emoji": "⚖️",
          "instruction": "Прозрачность и объяснимость решений. Каждое действие объяснено, логировано, оспорено. Accuracy vs интерпретируемость."},
 }
-
 
 IDEA_PROMPT = """ROLE: Архитектор Инноваций
 DATE: {date}

@@ -13,28 +13,8 @@ from datetime import datetime, date, timedelta
 
 logger = logging.getLogger(__name__)
 
-# FIX B6: безопасный DB_PATH — проверяем доступность /mnt/data,
-# иначе падаем на ./data (работает и локально, и на Railway без Volume)
-_default_db = "/mnt/data/wingman.db"
-DB_PATH = os.getenv("DB_PATH", _default_db)
-
-def _ensure_db_dir(path: str) -> str:
-    """Гарантирует существование директории; при ошибке — fallback на ./data."""
-    try:
-        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-        # Проверяем реальную записываемость
-        test = path + ".probe"
-        with open(test, "w") as f:
-            f.write("ok")
-        os.remove(test)
-        return path
-    except Exception as e:
-        fallback = os.path.join("./data", "wingman.db")
-        logger.warning(f"DB_PATH '{path}' недоступен ({e}), переключаюсь на {fallback}")
-        os.makedirs("./data", exist_ok=True)
-        return fallback
-
-DB_PATH = _ensure_db_dir(DB_PATH)
+DB_PATH = os.getenv("DB_PATH", "/mnt/data/wingman.db")
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 _lock = threading.Lock()
 

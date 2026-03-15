@@ -18,8 +18,7 @@ from google import genai
 from core.persona import PersonaBuilder
 from core.key_manager import KeyManager
 
-# FIX B10: исправлено имя модели (gemini-2.5-flash-lite не существует)
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
+MODEL_NAME = "gemini-2.5-flash-lite"
 logger = logging.getLogger(__name__)
 
 
@@ -120,23 +119,25 @@ class GeminiEngine:
         return await pm_generate(system, prompt, max_tokens)
 
     def _call_provider_sync(self, prompt: str, mode: str, max_tokens: int = 1200) -> str:
-        """Синхронная обёртка для _call_provider."""
+        """Синхронная обёртка — запускает корутину в новом event loop в отдельном треде."""
+        import concurrent.futures
+
+        def _run_in_new_loop():
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                return new_loop.run_until_complete(
+                    self._call_provider(prompt, mode, max_tokens)
+                )
+            finally:
+                new_loop.close()
+
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Уже внутри event loop — используем to_thread
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    future = pool.submit(
-                        asyncio.run,
-                        self._call_provider(prompt, mode, max_tokens)
-                    )
-                    return future.result()
-            else:
-                return loop.run_until_complete(self._call_provider(prompt, mode, max_tokens))
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(_run_in_new_loop)
+                return future.result(timeout=60)
         except Exception as e:
             logger.error(f"_call_provider_sync error: {e}")
-            # Fallback на прямой Gemini
             return self._call_gemini_sync(prompt, mode)
 
     # ── ЧАТ С ИСТОРИЕЙ ────────────────────────────────────────────

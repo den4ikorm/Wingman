@@ -322,14 +322,12 @@ def setup_healer_scheduler(bot):
     healer = HealerAgent(bot=bot)
     set_healer(healer)
 
-    # FIX B7: используем asyncio.get_running_loop() — гарантированно возвращает
-    # работающий loop, так как setup_healer_scheduler вызывается из async main().
-    # Сохраняем ссылку в замыкание _schedule_run, чтобы избежать NameError.
+    # БАГ 3 FIX: сохраняем loop при инициализации (вызывается из async контекста)
+    # run_coroutine_threadsafe безопасен из синхронного треда APScheduler
     try:
-        _loop = asyncio.get_running_loop()
+        _loop = asyncio.get_event_loop()
     except RuntimeError:
-        logger.error("setup_healer_scheduler вызван вне async контекста — healer отключён")
-        return healer
+        _loop = asyncio.new_event_loop()
 
     async def _run():
         if not _healer_paused:

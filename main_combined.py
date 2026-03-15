@@ -17,6 +17,7 @@ from bot.handlers.diet_mode_handler import router as diet_mode_router
 from bot.handlers import healer_handler
 from bot.keyboard_manager import nav_router
 from bot.handlers import travel_handler
+from bot.handlers import movie_handler
 from bot.scheduler_logic import setup_scheduler, setup_nightly_patterns, setup_healer_scheduler
 from core.database import init_db, get_all_user_ids
 from core.pattern_cache import init_pattern_tables
@@ -39,6 +40,7 @@ async def run_bot():
     dp.include_router(idea_router)
     dp.include_router(healer_handler.router)
     dp.include_router(travel_handler.router)
+    dp.include_router(movie_handler.router)
     dp.include_router(common.router)   # common — последним (ловит всё остальное)
 
     setup_scheduler()
@@ -49,7 +51,9 @@ async def run_bot():
     setup_weekly_scheduler(bot, get_all_user_ids)
 
     scheduler.start()
-    logging.info("Wingman v3.6 started")
+    from bot.config import REDIS_URL
+    storage_type = "Redis ✅" if REDIS_URL else "Memory ⚠️"
+    logging.info(f"Wingman v3.9 started — FSM: {storage_type}")
 
     # БАГ 1 FIX: delete_webhook до polling + graceful shutdown
     # Это убивает старый polling сессию перед запуском новой
