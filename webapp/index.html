@@ -26,7 +26,9 @@
 }
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{height:100%;-webkit-tap-highlight-color:transparent}
+html{height:100%;-webkit-tap-highlight-color:transparent;background:#080c12 !important}
+/* Принудительно переопределяем цвета Telegram WebApp */
+:root { color-scheme: dark !important; }
 body{
   font-family:'Golos Text',sans-serif;
   background:var(--bg);
@@ -826,13 +828,8 @@ if (tg) {
   tg.ready();
   tg.expand();
   tg.disableClosingConfirmation();
-  // Тёмная тема
-  if (tg.colorScheme === 'light') {
-    document.documentElement.style.setProperty('--bg','#f0f4f8');
-    document.documentElement.style.setProperty('--card','#ffffff');
-    document.documentElement.style.setProperty('--text','#1a202c');
-    document.documentElement.style.setProperty('--muted','#a0aec0');
-  }
+  // Всегда тёмная тема — игнорируем настройки Telegram
+  document.documentElement.setAttribute('data-theme', 'dark');
 }
 
 // ── Переключение страниц ────────────────────────────
