@@ -34,8 +34,10 @@ async def main():
     from bot.handlers import healer_handler, travel_handler
     from bot.handlers import content_handler, finance_handler, lifemode_handler
 
-    dp.include_router(survey.router)
+    # common.router ПЕРВЫМ — чтобы /start перехватывался до survey
+    dp.include_router(common.router)
     dp.include_router(nav_router)
+    dp.include_router(survey.router)
     dp.include_router(evening_handler.router)
     dp.include_router(diet_mode_router)
     dp.include_router(idea_router)
@@ -44,7 +46,6 @@ async def main():
     dp.include_router(content_handler.router)
     dp.include_router(finance_handler.router)
     dp.include_router(lifemode_handler.router)
-    dp.include_router(common.router)
 
     setup_scheduler()
     setup_nightly_patterns()

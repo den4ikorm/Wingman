@@ -5,952 +5,437 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Wingman</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg: #080c12;
-  --card: #0f1520;
-  --card2: #151d2e;
-  --border: rgba(255,255,255,0.06);
-  --text: #e8edf5;
-  --muted: #4a5568;
-  --r: 18px;
-
-  /* Режимы */
-  --cut:      #ff4757;
-  --bulk:     #2ed573;
-  --health:   #ff6b9d;
-  --energy:   #ffa502;
-  --detox:    #70d6ff;
-}
-
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{height:100%;-webkit-tap-highlight-color:transparent;background:#080c12 !important}
-/* Принудительно переопределяем цвета Telegram WebApp */
-:root { color-scheme: dark !important; }
-body{
-  font-family:'Golos Text',sans-serif;
-  background:var(--bg);
-  color:var(--text);
-  height:100dvh;
-  display:flex;
-  flex-direction:column;
-  overflow:hidden;
-  -webkit-font-smoothing:antialiased;
-}
-
-/* ════════════════════════════════════
-   НИЖНЯЯ НАВИГАЦИЯ
-════════════════════════════════════ */
-.nav {
-  display:flex;
-  background:rgba(8,12,18,0.95);
-  border-top:1px solid var(--border);
-  padding:8px 0 max(8px, env(safe-area-inset-bottom));
-  flex-shrink:0;
-  backdrop-filter:blur(20px);
-  z-index:100;
-}
-
-.nav-item {
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:3px;
-  padding:4px 0;
-  cursor:pointer;
-  transition:all .2s;
-  position:relative;
-}
-
-.nav-icon {
-  font-size:22px;
-  transition:transform .2s;
-}
-
-.nav-label {
-  font-size:9px;
-  font-weight:600;
-  letter-spacing:.5px;
-  text-transform:uppercase;
-  color:var(--muted);
-  transition:color .2s;
-}
-
-.nav-item.active .nav-label { color:var(--text); }
-.nav-item.active .nav-icon { transform:scale(1.15); }
-
-.nav-item::after {
-  content:'';
-  position:absolute;
-  bottom:-8px;
-  left:50%;
-  transform:translateX(-50%);
-  width:0;
-  height:2px;
-  border-radius:2px;
-  transition:width .25s;
-}
-
-.nav-item.active::after { width:28px; }
-
-/* Цвет активного пункта по режиму */
-.nav-item[data-page="cut"].active::after,
-.nav-item[data-page="cut"].active .nav-label { color:var(--cut); background:var(--cut); }
-.nav-item[data-page="bulk"].active::after { background:var(--bulk); }
-.nav-item[data-page="bulk"].active .nav-label { color:var(--bulk); }
-.nav-item[data-page="health"].active::after { background:var(--health); }
-.nav-item[data-page="health"].active .nav-label { color:var(--health); }
-.nav-item[data-page="energy"].active::after { background:var(--energy); }
-.nav-item[data-page="energy"].active .nav-label { color:var(--energy); }
-.nav-item[data-page="detox"].active::after { background:var(--detox); }
-.nav-item[data-page="detox"].active .nav-label { color:var(--detox); }
-
-/* ════════════════════════════════════
-   СТРАНИЦЫ
-════════════════════════════════════ */
-.pages {
-  flex:1;
-  overflow:hidden;
-  position:relative;
-}
-
-.page {
-  position:absolute;
-  inset:0;
-  overflow-y:auto;
-  overflow-x:hidden;
-  -webkit-overflow-scrolling:touch;
-  overscroll-behavior:contain;
-  opacity:0;
-  transform:translateY(12px);
-  pointer-events:none;
-  transition:opacity .28s ease, transform .28s ease;
-  padding:0 0 20px;
-}
-
-.page.active {
-  opacity:1;
-  transform:translateY(0);
-  pointer-events:all;
-}
-
-/* ════════════════════════════════════
-   HERO HEADER каждой страницы
-════════════════════════════════════ */
-.hero {
-  position:relative;
-  padding:28px 20px 24px;
-  overflow:hidden;
-}
-
-.hero-bg {
-  position:absolute;
-  inset:0;
-  opacity:.12;
-  background:radial-gradient(ellipse 80% 80% at 50% 0%, var(--accent), transparent);
-}
-
-.hero-tag {
-  font-family:'Syne',sans-serif;
-  font-size:10px;
-  font-weight:700;
-  letter-spacing:3px;
-  text-transform:uppercase;
-  color:var(--accent);
-  margin-bottom:8px;
-  opacity:.8;
-}
-
-.hero-title {
-  font-family:'Syne',sans-serif;
-  font-size:32px;
-  font-weight:800;
-  line-height:1;
-  letter-spacing:-1px;
-  color:#fff;
-  margin-bottom:6px;
-}
-
-.hero-sub {
-  font-size:13px;
-  color:rgba(232,237,245,.5);
-  line-height:1.5;
-}
-
-.hero-emoji {
-  position:absolute;
-  right:20px;
-  top:24px;
-  font-size:52px;
-  opacity:.25;
-}
-
-/* ════════════════════════════════════
-   КАРТОЧКИ
-════════════════════════════════════ */
-.section { padding:0 16px; margin-bottom:4px; }
-
-.section-title {
-  font-size:10px;
-  font-weight:700;
-  letter-spacing:2px;
-  text-transform:uppercase;
-  color:var(--muted);
-  margin-bottom:10px;
-  padding-left:4px;
-}
-
-.card {
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:var(--r);
-  padding:16px;
-  margin-bottom:10px;
-  position:relative;
-  overflow:hidden;
-  transition:transform .15s, border-color .15s;
-  cursor:pointer;
-}
-
-.card:active { transform:scale(.98); }
-
-.card::before {
-  content:'';
-  position:absolute;
-  left:0;top:0;bottom:0;
-  width:3px;
-  background:var(--accent);
-  border-radius:3px 0 0 3px;
-  opacity:.7;
-}
-
-.card-head {
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-bottom:8px;
-}
-
-.card-icon {
-  font-size:20px;
-  width:36px;height:36px;
-  display:flex;align-items:center;justify-content:center;
-  background:rgba(255,255,255,.04);
-  border-radius:10px;
-  flex-shrink:0;
-}
-
-.card-title {
-  font-family:'Syne',sans-serif;
-  font-size:14px;
-  font-weight:700;
-  color:#fff;
-}
-
-.card-body {
-  font-size:12px;
-  color:rgba(232,237,245,.55);
-  line-height:1.6;
-}
-
-/* Большая акцент-карточка */
-.card-accent {
-  background:linear-gradient(135deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-  border-color:rgba(255,255,255,.1);
-  padding:20px;
-  margin-bottom:10px;
-}
-
-.card-accent::before { opacity:1; width:4px; }
-
-.card-accent .card-title { font-size:17px; }
-.card-accent .card-body { font-size:13px; color:rgba(232,237,245,.7); }
-
-/* Прогресс-бар */
-.progress-wrap { margin-top:12px; }
-.progress-label {
-  display:flex;justify-content:space-between;
-  font-size:11px;color:var(--muted);
-  margin-bottom:6px;
-}
-.progress-bar {
-  height:4px;
-  background:rgba(255,255,255,.06);
-  border-radius:4px;
-  overflow:hidden;
-}
-.progress-fill {
-  height:100%;
-  background:var(--accent);
-  border-radius:4px;
-  transition:width 1s ease;
-}
-
-/* Сетка 2 колонки */
-.grid2 {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  padding:0 16px;
-  margin-bottom:14px;
-}
-
-.tile {
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:var(--r);
-  padding:16px 14px;
-  cursor:pointer;
-  transition:transform .15s;
-  position:relative;
-  overflow:hidden;
-}
-.tile:active{transform:scale(.97)}
-
-.tile-icon { font-size:24px; margin-bottom:8px; }
-.tile-label {
-  font-size:12px;
-  font-weight:600;
-  color:var(--text);
-  line-height:1.3;
-}
-.tile-sub {
-  font-size:10px;
-  color:var(--muted);
-  margin-top:3px;
-}
-
-/* Тег */
-.tag {
-  display:inline-flex;
-  align-items:center;
-  padding:3px 8px;
-  border-radius:6px;
-  font-size:10px;
-  font-weight:600;
-  letter-spacing:.5px;
-  background:rgba(255,255,255,.06);
-  color:var(--accent);
-  border:1px solid rgba(255,255,255,.08);
-  margin-right:5px;
-  margin-top:6px;
-}
-
-/* Кнопка */
-.btn {
-  width:100%;
-  padding:14px;
-  border-radius:14px;
-  border:none;
-  font-family:'Syne',sans-serif;
-  font-size:14px;
-  font-weight:700;
-  letter-spacing:.5px;
-  cursor:pointer;
-  transition:all .2s;
-  background:var(--accent);
-  color:#000;
-  margin-top:4px;
-}
-.btn:active { transform:scale(.97); opacity:.9; }
-
-.btn-ghost {
-  background:rgba(255,255,255,.05);
-  color:var(--text);
-  border:1px solid var(--border);
-}
-
-/* Разделитель */
-.divider {
-  height:1px;
-  background:var(--border);
-  margin:6px 16px 16px;
-}
-
-/* Мысль дня */
-.thought {
-  margin:0 16px 12px;
-  background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01));
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:var(--r);
-  padding:18px;
-  position:relative;
-}
-.thought::before {
-  content:'"';
-  position:absolute;
-  top:-4px;left:14px;
-  font-size:48px;
-  font-family:'Syne',sans-serif;
-  color:var(--accent);
-  opacity:.3;
-  line-height:1;
-}
-.thought-text {
-  font-size:13px;
-  font-style:italic;
-  color:rgba(232,237,245,.8);
-  line-height:1.7;
-  padding-top:10px;
-}
-.thought-author {
-  font-size:10px;
-  color:var(--muted);
-  margin-top:8px;
-  letter-spacing:1px;
-  text-transform:uppercase;
-}
-
-/* Список */
-.list-item {
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:12px 16px;
-  border-bottom:1px solid var(--border);
-  cursor:pointer;
-  transition:background .15s;
-}
-.list-item:last-child { border-bottom:none; }
-.list-item:active { background:rgba(255,255,255,.03); }
-.list-icon { font-size:18px; width:28px; text-align:center; }
-.list-text { flex:1; font-size:13px; }
-.list-arrow { color:var(--muted); font-size:14px; }
-
-/* ════════════════════════════════════
-   ЦВЕТА РЕЖИМОВ
-════════════════════════════════════ */
-[data-mode="cut"]    { --accent: var(--cut); }
-[data-mode="bulk"]   { --accent: var(--bulk); }
-[data-mode="health"] { --accent: var(--health); }
-[data-mode="energy"] { --accent: var(--energy); }
-[data-mode="detox"]  { --accent: var(--detox); }
-
-/* ════════════════════════════════════
-   АНИМАЦИИ
-════════════════════════════════════ */
-@keyframes pulse {
-  0%,100%{opacity:1}50%{opacity:.5}
-}
-@keyframes slideUp {
-  from{transform:translateY(20px);opacity:0}
-  to{transform:translateY(0);opacity:1}
-}
-.animate { animation:slideUp .4s ease both; }
-.animate-d1 { animation-delay:.05s; }
-.animate-d2 { animation-delay:.1s; }
-.animate-d3 { animation-delay:.15s; }
-.animate-d4 { animation-delay:.2s; }
-.animate-d5 { animation-delay:.25s; }
-
-/* ════════════════════════════════════
-   TOAST
-════════════════════════════════════ */
-.toast {
-  position:fixed;bottom:90px;left:50%;
-  transform:translateX(-50%) translateY(20px);
-  background:rgba(255,255,255,.12);
-  backdrop-filter:blur(16px);
-  border:1px solid rgba(255,255,255,.15);
-  color:#fff;
-  padding:10px 20px;
-  border-radius:30px;
-  font-size:12px;
-  font-weight:600;
-  opacity:0;
-  transition:all .25s;
-  pointer-events:none;
-  white-space:nowrap;
-  z-index:999;
-}
-.toast.show {
-  opacity:1;
-  transform:translateX(-50%) translateY(0);
-}
+:root{--bg:#080c12;--card:#0f1520;--card2:#151d2e;--border:rgba(255,255,255,0.07);--text:#e8edf5;--muted:#4a5568;--r:16px;--accent:#5b8fff}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg)!important;color-scheme:dark!important;overflow:hidden}
+body{font-family:'Golos Text',sans-serif;color:var(--text);display:flex;flex-direction:column;height:100dvh;-webkit-font-smoothing:antialiased}
+.bnav{display:flex;flex-shrink:0;background:rgba(8,12,18,.97);border-top:1px solid var(--border);padding:6px 0 max(6px,env(safe-area-inset-bottom));z-index:200}
+.bn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;cursor:pointer;transition:all .18s;position:relative}
+.bn-ico{font-size:22px;transition:transform .18s}
+.bn-lbl{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);transition:color .18s}
+.bn.active .bn-lbl{color:var(--accent)}.bn.active .bn-ico{transform:scale(1.12)}
+.bn::after{content:'';position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:2px;border-radius:2px;background:var(--accent);transition:width .22s}
+.bn.active::after{width:26px}
+.screens{flex:1;overflow:hidden;position:relative}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .25s,transform .25s}
+.screen.active{opacity:1;transform:translateY(0);pointer-events:all}
+.stabs{display:flex;gap:6px;padding:12px 14px 8px;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.stabs::-webkit-scrollbar{display:none}
+.stab{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;transition:all .18s;flex-shrink:0;background:var(--card);border:1px solid var(--border);color:var(--muted)}
+.stab.active{background:var(--accent);border-color:var(--accent);color:#000}
+.scontent{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0 14px 20px}
+.hero{padding:16px 14px 10px;position:relative;overflow:hidden;flex-shrink:0}
+.hero-bg{position:absolute;inset:0;opacity:.1;background:radial-gradient(ellipse 100% 120% at 50% -20%,var(--accent),transparent)}
+.hero-row{display:flex;align-items:flex-end;justify-content:space-between}
+.hero-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-1px;color:#fff;line-height:1}
+.hero-sub{font-size:12px;color:rgba(232,237,245,.5);margin-top:4px}
+.hero-badge{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(255,255,255,.08);color:var(--accent);border:1px solid rgba(255,255,255,.1)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;position:relative;overflow:hidden;cursor:pointer;transition:transform .15s}
+.card:active{transform:scale(.985)}
+.al::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);border-radius:3px 0 0 3px}
+.crow{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.cico{font-size:20px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border-radius:10px;flex-shrink:0}
+.ctit{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#fff}
+.cbod{font-size:12px;color:rgba(232,237,245,.55);line-height:1.6}
+.prow{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px;margin-top:10px}
+.pbar{height:3px;background:rgba(255,255,255,.06);border-radius:3px}
+.pfill{height:100%;border-radius:3px;background:var(--accent);transition:width 1s ease}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.tile{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;cursor:pointer;transition:transform .15s}
+.tile:active{transform:scale(.96)}
+.tico{font-size:22px;margin-bottom:8px}.tlbl{font-size:12px;font-weight:600;color:var(--text)}.tsub{font-size:10px;color:var(--muted);margin-top:2px}
+.btn{width:100%;padding:13px;border-radius:14px;border:none;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.3px;cursor:pointer;transition:all .18s;background:var(--accent);color:#000;margin-bottom:8px}
+.btn:active{transform:scale(.97);opacity:.9}
+.bg{background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--border)}
+.ci{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;transition:opacity .2s}
+.ci.done{opacity:.45}
+.cb{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s;font-size:12px}
+.ci.done .cb{background:var(--accent);border-color:var(--accent);color:#000}
+.ct{flex:1;font-size:13px;color:var(--text);transition:all .2s}.ci.done .ct{text-decoration:line-through;color:var(--muted)}
+.cc{font-size:10px;color:var(--muted);margin-top:1px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tag{padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(255,255,255,.05);color:var(--accent);border:1px solid rgba(255,255,255,.08)}
+.wli{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.wli:last-child{border-bottom:none}
+.wln{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:rgba(255,255,255,.08);min-width:28px}
+.wlb{flex:1}.wlt{font-size:13px;font-weight:600;color:var(--text)}.wls{font-size:11px;color:var(--muted);margin-top:2px}
+.wld{color:var(--muted);font-size:18px;padding:4px 8px;cursor:pointer}
+.fsum{display:flex;gap:8px;margin-bottom:10px}
+.ftile{flex:1;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px;text-align:center}
+.famt{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:2px}
+.flbl{font-size:10px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.inc{color:#2ed573}.exp{color:#ff4757}
+.sec{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:14px 0 8px;padding-left:2px}
+.div{height:1px;background:var(--border);margin:8px 0 14px}
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty-ico{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-txt{font-size:13px}
+.quote{background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:16px 16px 14px;margin-bottom:10px;position:relative}
+.quote::before{content:'"';position:absolute;top:-6px;left:12px;font-size:44px;font-family:'Syne',sans-serif;color:var(--accent);opacity:.25;line-height:1}
+.qtxt{font-size:13px;font-style:italic;color:rgba(232,237,245,.8);line-height:1.7;padding-top:8px}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(16px);background:rgba(20,28,46,.97);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);color:#fff;padding:10px 20px;border-radius:30px;font-size:12px;font-weight:600;opacity:0;transition:all .22s;pointer-events:none;white-space:nowrap;z-index:999}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
+<div class="screens" id="screens">
 
-<!-- ════════════════════════════════════ СТРАНИЦЫ -->
-<div class="pages">
-
-  <!-- ── СУШКА ─────────────────────────────────── -->
-  <div class="page active" id="page-cut" data-mode="cut">
-    <div class="hero">
-      <div class="hero-bg"></div>
-      <div class="hero-tag">Режим активен</div>
-      <div class="hero-title">Сушка</div>
-      <div class="hero-sub">Дефицит −20% · Высокий белок</div>
-      <div class="hero-emoji">🔥</div>
-    </div>
-
-    <div class="thought animate">
-      <div class="thought-text" id="thought-cut">Дисциплина — это мост между целью и достижением. Каждый день выбор в пользу плана — это шаг вперёд.</div>
-      <div class="thought-author">Мысль дня</div>
-    </div>
-
-    <div class="section animate animate-d1">
-      <div class="section-title">Сегодня</div>
-      <div class="card card-accent">
-        <div class="card-head">
-          <div class="card-icon">🥗</div>
-          <div class="card-title">План питания</div>
-        </div>
-        <div class="card-body">Завтрак: овсянка + белок · Обед: курица + овощи · Ужин: творог · КБЖУ: ~1600 ккал</div>
-        <div class="progress-wrap">
-          <div class="progress-label"><span>Калории</span><span>1240 / 1600</span></div>
-          <div class="progress-bar"><div class="progress-fill" style="width:77%"></div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="section animate animate-d2">
-      <div class="section-title">Тренировка</div>
-      <div class="card">
-        <div class="card-head">
-          <div class="card-icon">⚡</div>
-          <div class="card-title">Кардио + силовые</div>
-        </div>
-        <div class="card-body">30 мин кардио → 3 подхода присед → 3 подхода жим. Не пропускай белок после.</div>
-        <div style="margin-top:10px">
-          <span class="tag">Кардио</span>
-          <span class="tag">Силовые</span>
-          <span class="tag">30 мин</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="grid2 animate animate-d3">
-      <div class="tile" onclick="toast('Отмечено ✓')">
-        <div class="tile-icon">💧</div>
-        <div class="tile-label">Вода</div>
-        <div class="tile-sub">1.8 / 2.5 л</div>
-      </div>
-      <div class="tile" onclick="toast('Стрик: 7 дней 🔥')">
-        <div class="tile-icon">🔥</div>
-        <div class="tile-label">Стрик</div>
-        <div class="tile-sub">7 дней</div>
-      </div>
-    </div>
-
-    <div class="section animate animate-d4">
-      <button class="btn" onclick="tgAction('plan')">📋 Обновить план дня</button>
-      <button class="btn btn-ghost" style="margin-top:8px" onclick="tgAction('weight')">⚖️ Внести вес</button>
+<!-- ДИЕТА -->
+<div class="screen active" id="s-diet">
+  <div class="hero" style="--accent:#52e0a0">
+    <div class="hero-bg"></div>
+    <div class="hero-row">
+      <div><div class="hero-title" style="color:#52e0a0">🥗 Диета</div><div class="hero-sub">Питание под цель</div></div>
+      <div class="hero-badge" style="color:#52e0a0;border-color:rgba(82,224,160,.2)">1 600 ккал</div>
     </div>
   </div>
-
-  <!-- ── МАССА ──────────────────────────────────── -->
-  <div class="page" id="page-bulk" data-mode="bulk">
-    <div class="hero">
-      <div class="hero-bg"></div>
-      <div class="hero-tag">Набор массы</div>
-      <div class="hero-title">Масса</div>
-      <div class="hero-sub">Профицит +15% · 5–6 приёмов</div>
-      <div class="hero-emoji">💪</div>
-    </div>
-
-    <div class="thought animate">
-      <div class="thought-text" id="thought-bulk">Мышцы строятся не в зале — они строятся за столом и во сне. Еда и восстановление важнее тренировки.</div>
-      <div class="thought-author">Мысль дня</div>
-    </div>
-
-    <div class="section animate animate-d1">
-      <div class="section-title">КБЖУ на сегодня</div>
-      <div class="card card-accent">
-        <div class="card-head">
-          <div class="card-icon">🍖</div>
-          <div class="card-title">2800 ккал · 210г белка</div>
-        </div>
-        <div class="card-body">Мясо, рыба, яйца, крупы, бобовые. Приём пищи каждые 3 часа для анаболизма.</div>
-        <div class="progress-wrap">
-          <div class="progress-label"><span>Белок</span><span>165 / 210г</span></div>
-          <div class="progress-bar"><div class="progress-fill" style="width:78%"></div></div>
+  <div class="stabs" id="diet-tabs">
+    <div class="stab active" onclick="dtab('day',this)">На день</div>
+    <div class="stab" onclick="dtab('week',this)">На неделю</div>
+    <div class="stab" onclick="dtab('recipes',this)">Рецепты</div>
+    <div class="stab" onclick="dtab('shop',this)">Покупки</div>
+  </div>
+  <div class="scontent" id="diet-content" style="--accent:#52e0a0">
+    <div id="dt-day">
+      <div class="sec">Сегодня</div>
+      <div class="card al">
+        <div class="crow"><div class="cico">🌅</div><div><div class="ctit">Завтрак · 07:30</div><div class="cbod">Овсянка + 2 яйца варёных + чай</div></div></div>
+        <div class="prow"><span>КБЖУ</span><span>420 ккал · Б:24 · Ж:14 · У:48</span></div>
+        <div class="pbar"><div class="pfill" style="width:100%;background:#52e0a0"></div></div>
+        <div class="tags">
+          <span class="tag" style="color:#52e0a0">✓ Съедено</span>
+          <a class="tag" href="https://www.youtube.com/results?search_query=овсянка+рецепт+пп" target="_blank" style="color:#ffd166;text-decoration:none">▶ YouTube</a>
         </div>
       </div>
-    </div>
-
-    <div class="section animate animate-d2">
-      <div class="section-title">Тренировка</div>
-      <div class="card">
-        <div class="card-head">
-          <div class="card-icon">🏋️</div>
-          <div class="card-title">Базовые упражнения</div>
+      <div class="card al">
+        <div class="crow"><div class="cico">☀️</div><div><div class="ctit">Обед · 13:00</div><div class="cbod">Куриное филе 200г + гречка + салат</div></div></div>
+        <div class="prow"><span>КБЖУ</span><span>540 ккал · Б:46 · Ж:8 · У:62</span></div>
+        <div class="pbar"><div class="pfill" style="width:60%;background:#52e0a0"></div></div>
+        <div class="tags">
+          <span class="tag" style="color:#ffa502">⏳ Впереди</span>
+          <a class="tag" href="https://www.youtube.com/results?search_query=куриное+филе+рецепт+пп" target="_blank" style="color:#ffd166;text-decoration:none">▶ YouTube</a>
         </div>
-        <div class="card-body">Сегодня: Присед 5×5 · Жим лёжа 4×8 · Тяга 3×6. Прогрессия нагрузки обязательна.</div>
-        <div style="margin-top:10px">
-          <span class="tag">Силовые</span>
-          <span class="tag">Базовые</span>
-          <span class="tag">Прогрессия</span>
+        <div class="sec">Альтернативы</div>
+        <div class="tags">
+          <span class="tag" onclick="toast('🦃 Заменено на индейку')">🦃 Индейка</span>
+          <span class="tag" onclick="toast('🍚 Заменено на рис')">🍚 Рис</span>
+          <span class="tag" onclick="toast('🐟 Заменено на тунец')">🐟 Тунец</span>
         </div>
       </div>
-    </div>
-
-    <div class="grid2 animate animate-d3">
-      <div class="tile" onclick="toast('Суперкомпенсация идёт 💪')">
-        <div class="tile-icon">😴</div>
-        <div class="tile-label">Сон</div>
-        <div class="tile-sub">8+ часов</div>
+      <div class="card al">
+        <div class="crow"><div class="cico">🌙</div><div><div class="ctit">Ужин · 19:00</div><div class="cbod">Творог 5% 200г + ягоды + орехи</div></div></div>
+        <div class="prow"><span>КБЖУ</span><span>320 ккал · Б:36 · Ж:10 · У:22</span></div>
+        <div class="pbar"><div class="pfill" style="width:0%;background:#52e0a0"></div></div>
+        <div class="tags">
+          <a class="tag" href="https://www.youtube.com/results?search_query=творог+с+ягодами+рецепт" target="_blank" style="color:#ffd166;text-decoration:none">▶ YouTube</a>
+        </div>
       </div>
-      <div class="tile" onclick="toast('Стрик: 12 дней 💪')">
-        <div class="tile-icon">📈</div>
-        <div class="tile-label">Прогресс</div>
-        <div class="tile-sub">+2кг за месяц</div>
+      <div class="div"></div>
+      <div class="g2">
+        <div class="tile"><div class="tico">🔥</div><div class="tlbl">1 280 / 1 600</div><div class="tsub">ккал съедено</div></div>
+        <div class="tile"><div class="tico">💪</div><div class="tlbl">106 / 140г</div><div class="tsub">белок</div></div>
       </div>
+      <button class="btn" style="background:#52e0a0" onclick="tgAction('plan')">🔄 Обновить план</button>
     </div>
-
-    <div class="section animate animate-d4">
-      <button class="btn" onclick="tgAction('recipes')">🍳 Рецепты под набор</button>
-      <button class="btn btn-ghost" style="margin-top:8px" onclick="tgAction('shopping')">🛒 Список покупок</button>
+    <div id="dt-week" style="display:none">
+      <div class="sec">Меню на неделю</div>
+      <div id="week-meals"></div>
+      <button class="btn" style="background:#52e0a0" onclick="tgAction('plan')">✨ Сгенерировать новое меню</button>
+    </div>
+    <div id="dt-recipes" style="display:none">
+      <div class="sec">Рецепты под план</div>
+      <div id="recipes-list"></div>
+      <button class="btn" style="background:#52e0a0" onclick="tgAction('recipes')">🍳 Новые рецепты</button>
+    </div>
+    <div id="dt-shop" style="display:none">
+      <div class="sec">Список покупок</div>
+      <div id="shop-list"></div>
+      <div class="div"></div>
+      <button class="btn" style="background:#52e0a0" onclick="tgAction('shopping')">🔄 Обновить список</button>
+      <button class="btn bg" onclick="clearChecked()">🗑 Убрать отмеченные</button>
     </div>
   </div>
+</div>
 
-  <!-- ── ЗДОРОВЬЕ ────────────────────────────────── -->
-  <div class="page" id="page-health" data-mode="health">
-    <div class="hero">
-      <div class="hero-bg"></div>
-      <div class="hero-tag">Баланс и забота</div>
-      <div class="hero-title">Здоровье</div>
-      <div class="hero-sub">Баланс · Без ограничений</div>
-      <div class="hero-emoji">❤️</div>
-    </div>
-
-    <div class="thought animate">
-      <div class="thought-text" id="thought-health">Здоровье — это не отсутствие болезни. Это энергия на всё что важно. Маленькие шаги каждый день.</div>
-      <div class="thought-author">Мысль дня</div>
-    </div>
-
-    <div class="section animate animate-d1">
-      <div class="section-title">Самочувствие</div>
-      <div class="card card-accent">
-        <div class="card-head">
-          <div class="card-icon">🌿</div>
-          <div class="card-title">Всё разрешено</div>
-        </div>
-        <div class="card-body">Сбалансированное питание без стресса. Больше овощей, фруктов, цельных продуктов. Слушай тело.</div>
-      </div>
-    </div>
-
-    <div class="section animate animate-d2">
-      <div class="section-title">Активность</div>
-      <div class="card">
-        <div class="card-head">
-          <div class="card-icon">🚶</div>
-          <div class="card-title">7000 шагов</div>
-        </div>
-        <div class="card-body">Ходьба на свежем воздухе + лёгкая растяжка. Любая активность которая приносит радость.</div>
-        <div class="progress-wrap">
-          <div class="progress-label"><span>Шаги сегодня</span><span>5 240 / 7 000</span></div>
-          <div class="progress-bar"><div class="progress-fill" style="width:74%"></div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="grid2 animate animate-d3">
-      <div class="tile" onclick="toast('Настроение записано ❤️')">
-        <div class="tile-icon">😊</div>
-        <div class="tile-label">Настроение</div>
-        <div class="tile-sub">Отметить</div>
-      </div>
-      <div class="tile" onclick="toast('Так держать! 🌿')">
-        <div class="tile-icon">🌱</div>
-        <div class="tile-label">Стрик</div>
-        <div class="tile-sub">21 день</div>
-      </div>
-    </div>
-
-    <div class="section animate animate-d4">
-      <button class="btn" onclick="tgAction('morning')">☀️ Утренний настрой</button>
-      <button class="btn btn-ghost" style="margin-top:8px" onclick="tgAction('movie')">🎬 Что посмотреть вечером</button>
+<!-- КИНО -->
+<div class="screen" id="s-movie">
+  <div class="hero" style="--accent:#c77dff">
+    <div class="hero-bg"></div>
+    <div class="hero-row">
+      <div><div class="hero-title" style="color:#c77dff">🎬 Кино</div><div class="hero-sub">Фильмы и сериалы</div></div>
+      <div class="hero-badge" style="color:#c77dff;border-color:rgba(199,125,255,.2)" id="wl-count">0 в списке</div>
     </div>
   </div>
+  <div class="stabs">
+    <div class="stab active" onclick="mtab('recs','mt-recs','mt-watchlist',this)">Рекомендации</div>
+    <div class="stab" onclick="mtab('wl','mt-watchlist','mt-recs',this)">Смотреть позже</div>
+  </div>
+  <div class="scontent" style="--accent:#c77dff">
+    <div id="mt-recs"><div class="sec">Подобрано для тебя</div><div id="movie-recs"></div><button class="btn" style="background:#c77dff;color:#000" onclick="tgAction('movie')">🎬 Новые рекомендации</button></div>
+    <div id="mt-watchlist" style="display:none"><div class="sec">Список для просмотра</div><div id="movie-wl"></div></div>
+  </div>
+</div>
 
-  <!-- ── ЭНЕРГИЯ ─────────────────────────────────── -->
-  <div class="page" id="page-energy" data-mode="energy">
-    <div class="hero">
-      <div class="hero-bg"></div>
-      <div class="hero-tag">Продуктивность</div>
-      <div class="hero-title">Энергия</div>
-      <div class="hero-sub">Низкий ГИ · Дробно · Фокус</div>
-      <div class="hero-emoji">⚡</div>
-    </div>
-
-    <div class="thought animate">
-      <div class="thought-text" id="thought-energy">Энергия не берётся из кофе — она строится из сна, еды и движения. Инвестируй в топливо, а не в стимуляторы.</div>
-      <div class="thought-author">Мысль дня</div>
-    </div>
-
-    <div class="section animate animate-d1">
-      <div class="section-title">Питание для мозга</div>
-      <div class="card card-accent">
-        <div class="card-head">
-          <div class="card-icon">🧠</div>
-          <div class="card-title">Низкий гликемический индекс</div>
-        </div>
-        <div class="card-body">Орехи, ягоды, гречка, рыба, авокадо. Без резких скачков сахара → стабильная концентрация весь день.</div>
+<!-- МУЗЫКА -->
+<div class="screen" id="s-music">
+  <div class="hero" style="--accent:#ffd166">
+    <div class="hero-bg"></div>
+    <div class="hero-row"><div><div class="hero-title" style="color:#ffd166">🎵 Музыка</div><div class="hero-sub">Треки под настроение</div></div></div>
+  </div>
+  <div class="stabs">
+    <div class="stab active" onclick="mtab('recs','mut-recs','mut-saved',this)">Рекомендации</div>
+    <div class="stab" onclick="mtab('sv','mut-saved','mut-recs',this)">Сохранённые</div>
+  </div>
+  <div class="scontent" style="--accent:#ffd166">
+    <div id="mut-recs">
+      <div class="sec">Сегодня слушать</div>
+      <div id="music-recs"></div>
+      <div class="sec" style="margin-top:16px">По настроению</div>
+      <div class="g2">
+        <div class="tile" onclick="tgAction('music')"><div class="tico">⚡</div><div class="tlbl">Энергия</div></div>
+        <div class="tile" onclick="tgAction('music')"><div class="tico">😌</div><div class="tlbl">Расслабление</div></div>
+        <div class="tile" onclick="tgAction('music')"><div class="tico">🎯</div><div class="tlbl">Фокус</div></div>
+        <div class="tile" onclick="tgAction('music')"><div class="tico">💭</div><div class="tlbl">Задумчивое</div></div>
       </div>
     </div>
+    <div id="mut-saved" style="display:none"><div class="sec">Сохранённые треки</div><div id="music-saved"></div></div>
+  </div>
+</div>
 
-    <div class="section animate animate-d2">
-      <div class="section-title">Расписание</div>
-      <div class="card">
-        <div class="card-head">
-          <div class="card-icon">⏰</div>
-          <div class="card-title">5–6 приёмов пищи</div>
-        </div>
-        <div class="card-body">Каждые 2.5–3 часа небольшими порциями. Без кофе после 15:00. Прогулка в обед обязательна.</div>
-        <div style="margin-top:10px">
-          <span class="tag">Дробное</span>
-          <span class="tag">Без сахара</span>
-          <span class="tag">Прогулка</span>
-        </div>
-      </div>
-    </div>
+<!-- КНИГИ -->
+<div class="screen" id="s-books">
+  <div class="hero" style="--accent:#ff6b9d">
+    <div class="hero-bg"></div>
+    <div class="hero-row"><div><div class="hero-title" style="color:#ff6b9d">📚 Книги</div><div class="hero-sub">Читать и развиваться</div></div></div>
+  </div>
+  <div class="stabs">
+    <div class="stab active" onclick="mtab('recs','bt-recs','bt-readlist',this)">Рекомендации</div>
+    <div class="stab" onclick="mtab('rl','bt-readlist','bt-recs',this)">Читать позже</div>
+  </div>
+  <div class="scontent" style="--accent:#ff6b9d">
+    <div id="bt-recs"><div class="sec">Подобрано для тебя</div><div id="books-recs"></div><button class="btn" style="background:#ff6b9d;color:#000" onclick="tgAction('books')">📚 Новые рекомендации</button></div>
+    <div id="bt-readlist" style="display:none"><div class="sec">Список для чтения</div><div id="books-rl"></div></div>
+  </div>
+</div>
 
-    <div class="grid2 animate animate-d3">
-      <div class="tile" onclick="toast('⚡ Заряд полный!')">
-        <div class="tile-icon">⚡</div>
-        <div class="tile-label">Заряд</div>
-        <div class="tile-sub">Высокий</div>
-      </div>
-      <div class="tile" onclick="toast('Фокус-сессия: 25 мин')">
-        <div class="tile-icon">🎯</div>
-        <div class="tile-label">Фокус</div>
-        <div class="tile-sub">Помодоро</div>
-      </div>
-    </div>
-
-    <div class="section animate animate-d4">
-      <button class="btn" onclick="tgAction('plan')">📋 План продуктивного дня</button>
-      <button class="btn btn-ghost" style="margin-top:8px" onclick="tgAction('music')">🎵 Музыка для фокуса</button>
+<!-- ФИНАНСЫ -->
+<div class="screen" id="s-finance">
+  <div class="hero" style="--accent:#ffa502">
+    <div class="hero-bg"></div>
+    <div class="hero-row">
+      <div><div class="hero-title" style="color:#ffa502">💰 Финансы</div><div class="hero-sub">Бюджет и цели</div></div>
+      <div class="hero-badge" id="fin-balance" style="color:#2ed573;border-color:rgba(46,213,115,.2)">+0 ₽</div>
     </div>
   </div>
-
-  <!-- ── ДЕТОКС ──────────────────────────────────── -->
-  <div class="page" id="page-detox" data-mode="detox">
-    <div class="hero">
-      <div class="hero-bg"></div>
-      <div class="hero-tag">Очищение</div>
-      <div class="hero-title">Детокс</div>
-      <div class="hero-sub">Чисто · Легко · Осознанно</div>
-      <div class="hero-emoji">🧘</div>
-    </div>
-
-    <div class="thought animate">
-      <div class="thought-text" id="thought-detox">Пауза — это не остановка. Это перезагрузка. Иногда лучшее что можно сделать — убрать лишнее и побыть в тишине.</div>
-      <div class="thought-author">Мысль дня</div>
-    </div>
-
-    <div class="section animate animate-d1">
-      <div class="section-title">Питание</div>
-      <div class="card card-accent">
-        <div class="card-head">
-          <div class="card-icon">🥦</div>
-          <div class="card-title">Овощи · Фрукты · Вода</div>
-        </div>
-        <div class="card-body">Без алкоголя, фастфуда, обработанных продуктов. 2+ литра воды. Лёгкое и чистое — единственное правило.</div>
-        <div class="progress-wrap">
-          <div class="progress-label"><span>Вода</span><span>1.6 / 2.5 л</span></div>
-          <div class="progress-bar"><div class="progress-fill" style="width:64%"></div></div>
-        </div>
+  <div class="stabs" id="fin-stabs">
+    <div class="stab active" onclick="ftab('overview',this)">Обзор</div>
+    <div class="stab" onclick="ftab('goals',this)">Цели</div>
+    <div class="stab" onclick="ftab('expenses',this)">Расходы</div>
+    <div class="stab" onclick="ftab('receipt',this)">📸 Чек</div>
+  </div>
+  <div class="scontent" style="--accent:#ffa502">
+    <div id="ft-overview">
+      <div class="fsum">
+        <div class="ftile"><div class="famt inc" id="f-inc">0 ₽</div><div class="flbl">Доходы</div></div>
+        <div class="ftile"><div class="famt exp" id="f-exp">0 ₽</div><div class="flbl">Расходы</div></div>
+        <div class="ftile"><div class="famt" id="f-bal">0 ₽</div><div class="flbl">Баланс</div></div>
       </div>
+      <div class="sec">По категориям</div>
+      <div id="fin-cats"></div>
     </div>
-
-    <div class="section animate animate-d2">
-      <div class="section-title">Практики</div>
-      <div class="card">
-        <div class="card-head">
-          <div class="card-icon">🌊</div>
-          <div class="card-title">Йога и медитация</div>
-        </div>
-        <div class="card-body">Утренняя йога 20 мин. Вечерняя медитация 10 мин. Прогулка на природе. Без интенсивных нагрузок.</div>
-        <div style="margin-top:10px">
-          <span class="tag">Йога</span>
-          <span class="tag">Медитация</span>
-          <span class="tag">Природа</span>
-        </div>
+    <div id="ft-goals" style="display:none">
+      <div class="sec">Финансовые цели</div>
+      <div id="fin-goals-list"></div>
+      <button class="btn" style="background:#ffa502;color:#000" onclick="tgAction('finance')">🎯 Новая цель</button>
+    </div>
+    <div id="ft-expenses" style="display:none">
+      <div class="sec">Добавить трату</div>
+      <div class="g2">
+        <div class="tile" onclick="addExp('🛒 Продукты')"><div class="tico">🛒</div><div class="tlbl">Продукты</div></div>
+        <div class="tile" onclick="addExp('🚗 Транспорт')"><div class="tico">🚗</div><div class="tlbl">Транспорт</div></div>
+        <div class="tile" onclick="addExp('☕ Кафе')"><div class="tico">☕</div><div class="tlbl">Кафе</div></div>
+        <div class="tile" onclick="addExp('🎬 Развлечения')"><div class="tico">🎬</div><div class="tlbl">Развлечения</div></div>
+        <div class="tile" onclick="addExp('💊 Здоровье')"><div class="tico">💊</div><div class="tlbl">Здоровье</div></div>
+        <div class="tile" onclick="addExp('📦 Прочее')"><div class="tico">📦</div><div class="tlbl">Прочее</div></div>
       </div>
+      <div class="sec">История</div><div id="fin-hist"></div>
     </div>
-
-    <div class="grid2 animate animate-d3">
-      <div class="tile" onclick="toast('Дыши глубже 🌊')">
-        <div class="tile-icon">🌬️</div>
-        <div class="tile-label">Дыхание</div>
-        <div class="tile-sub">4–7–8</div>
-      </div>
-      <div class="tile" onclick="toast('Тишина — это тоже практика 🧘')">
-        <div class="tile-icon">🔇</div>
-        <div class="tile-label">Цифровой</div>
-        <div class="tile-sub">детокс</div>
-      </div>
-    </div>
-
-    <div class="section animate animate-d4">
-      <button class="btn" onclick="tgAction('detox')">🌿 Детокс-рецепты</button>
-      <button class="btn btn-ghost" style="margin-top:8px" onclick="tgAction('books')">📚 Книга про осознанность</button>
+    <div id="ft-receipt" style="display:none">
+      <div class="quote"><div class="qtxt">Сфотографируй чек — распознаю позиции, сохраню цены и обновлю список покупок автоматически.</div></div>
+      <button class="btn" style="background:#ffa502;color:#000" onclick="tgAction('finance')">📸 Сфотографировать чек</button>
+      <div class="sec">Сравнение цен</div>
+      <div class="empty"><div class="empty-ico">🏪</div><div class="empty-txt">Сфотографируй 3+ чека чтобы видеть где дешевле</div></div>
     </div>
   </div>
+</div>
+</div>
 
-</div><!-- /pages -->
-
-<!-- ════════════════════════════════════ НАВИГАЦИЯ -->
-<nav class="nav">
-  <div class="nav-item active" data-page="cut" onclick="showPage('cut')">
-    <div class="nav-icon">🔥</div>
-    <div class="nav-label">Сушка</div>
-  </div>
-  <div class="nav-item" data-page="bulk" onclick="showPage('bulk')">
-    <div class="nav-icon">💪</div>
-    <div class="nav-label">Масса</div>
-  </div>
-  <div class="nav-item" data-page="health" onclick="showPage('health')">
-    <div class="nav-icon">❤️</div>
-    <div class="nav-label">Здоровье</div>
-  </div>
-  <div class="nav-item" data-page="energy" onclick="showPage('energy')">
-    <div class="nav-icon">⚡</div>
-    <div class="nav-label">Энергия</div>
-  </div>
-  <div class="nav-item" data-page="detox" onclick="showPage('detox')">
-    <div class="nav-icon">🧘</div>
-    <div class="nav-label">Детокс</div>
-  </div>
+<nav class="bnav">
+  <div class="bn active" data-s="diet" onclick="showScreen('diet')"><div class="bn-ico">🥗</div><div class="bn-lbl">Диета</div></div>
+  <div class="bn" data-s="movie" onclick="showScreen('movie')"><div class="bn-ico">🎬</div><div class="bn-lbl">Кино</div></div>
+  <div class="bn" data-s="music" onclick="showScreen('music')"><div class="bn-ico">🎵</div><div class="bn-lbl">Музыка</div></div>
+  <div class="bn" data-s="books" onclick="showScreen('books')"><div class="bn-ico">📚</div><div class="bn-lbl">Книги</div></div>
+  <div class="bn" data-s="finance" onclick="showScreen('finance')"><div class="bn-ico">💰</div><div class="bn-lbl">Финансы</div></div>
 </nav>
-
 <div class="toast" id="toast"></div>
 
 <script>
-// ── Telegram WebApp init ────────────────────────────
-const tg = window.Telegram?.WebApp;
-if (tg) {
-  tg.ready();
-  tg.expand();
-  tg.disableClosingConfirmation();
-  // Всегда тёмная тема — игнорируем настройки Telegram
-  document.documentElement.setAttribute('data-theme', 'dark');
+const tg=window.Telegram?.WebApp;
+if(tg){tg.ready();tg.expand();tg.disableClosingConfirmation();tg.setHeaderColor?.('#080c12');tg.setBackgroundColor?.('#080c12')}
+
+// SWIPE FIX
+let _ty=0;
+document.addEventListener('touchstart',e=>{_ty=e.touches[0].clientY},{passive:true});
+document.addEventListener('touchmove',e=>{
+  const el=e.target.closest('.scontent,.stabs');if(!el)return;
+  const dy=e.touches[0].clientY-_ty;
+  if(dy>0&&el.scrollTop<=0)e.preventDefault();
+  if(dy<0&&el.scrollTop+el.clientHeight>=el.scrollHeight-2)e.preventDefault();
+},{passive:false});
+
+// NAV
+let cur='diet';
+function showScreen(id){
+  if(id===cur)return;
+  document.getElementById('s-'+cur).classList.remove('active');
+  document.getElementById('s-'+id).classList.add('active');
+  document.querySelectorAll('.bn').forEach(b=>b.classList.toggle('active',b.dataset.s===id));
+  cur=id;tg?.HapticFeedback?.selectionChanged();
 }
 
-// ── Переключение страниц ────────────────────────────
-let current = 'cut';
+// DIET TABS
+function dtab(id,el){
+  ['day','week','recipes','shop'].forEach(t=>document.getElementById('dt-'+t).style.display=t===id?'block':'none');
+  document.querySelectorAll('#diet-tabs .stab').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  if(id==='week'&&!document.getElementById('week-meals').children.length)loadWeek();
+  if(id==='recipes'&&!document.getElementById('recipes-list').children.length)loadRecipes();
+  if(id==='shop')loadShop();
+}
 
-function showPage(mode) {
-  if (mode === current) return;
+// GENERIC 2-TAB
+function mtab(id,showId,hideId,el){
+  document.getElementById(showId).style.display='block';
+  document.getElementById(hideId).style.display='none';
+  el.parentElement.querySelectorAll('.stab').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+}
 
-  document.getElementById('page-' + current).classList.remove('active');
-  document.getElementById('page-' + mode).classList.add('active');
+// FINANCE TABS
+function ftab(id,el){
+  ['overview','goals','expenses','receipt'].forEach(t=>document.getElementById('ft-'+t).style.display=t===id?'block':'none');
+  document.querySelectorAll('#fin-stabs .stab').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+}
 
-  document.querySelectorAll('.nav-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.page === mode);
+// SHOP
+const SHOP=[{id:1,n:'Куриное филе 1кг',c:'Мясо',d:false},{id:2,n:'Гречка 800г',c:'Крупы',d:false},
+  {id:3,n:'Творог 5% 400г',c:'Молочное',d:true},{id:4,n:'Яйца 10шт',c:'Молочное',d:false},
+  {id:5,n:'Овсянка 500г',c:'Крупы',d:false},{id:6,n:'Огурцы 1кг',c:'Овощи',d:true}];
+function loadShop(){
+  const el=document.getElementById('shop-list');el.innerHTML='';
+  SHOP.forEach(item=>{
+    const d=document.createElement('div');d.className='ci'+(item.d?' done':'');
+    d.innerHTML=`<div class="cb">${item.d?'✓':''}</div><div><div class="ct">${item.n}</div><div class="cc">${item.c}</div></div>`;
+    d.onclick=()=>{item.d=!item.d;d.className='ci'+(item.d?' done':'');d.querySelector('.cb').textContent=item.d?'✓':'';tg?.HapticFeedback?.impactOccurred('light');toast(item.d?'✓ '+item.n:'↩ '+item.n)};
+    el.appendChild(d);
   });
+}
+function clearChecked(){for(let i=SHOP.length-1;i>=0;i--)if(SHOP[i].d)SHOP.splice(i,1);loadShop();toast('Отмеченные удалены')}
 
-  // Обновляем мысль дня при переключении
-  refreshThought(mode);
+// WEEK
+const WEEK=[{d:'Пн',m:'Овсянка / Курица+гречка / Творог'},{d:'Вт',m:'Яичница / Тунец+рис / Кефир'},
+  {d:'Ср',m:'Каша / Индейка+овощи / Творог'},{d:'Чт',m:'Омлет / Говядина+картофель / Кефир'},
+  {d:'Пт',m:'Овсянка / Курица+макароны / Орехи'},{d:'Сб',m:'Блины / Рыба+рис / Творог'},
+  {d:'Вс',m:'Яйца / Курица+гречка / Кефир'}];
+function loadWeek(){const el=document.getElementById('week-meals');
+  WEEK.forEach(w=>{el.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">📅</div><div><div class="ctit">${w.d}</div><div class="cbod">${w.m}</div></div></div></div>`})}
 
-  current = mode;
+// RECIPES
+const RCP=[{n:'Куриное филе в духовке',t:'35 мин',k:'280 ккал',yt:'куриное+филе+в+духовке+пп'},
+  {n:'Гречка с овощами',t:'20 мин',k:'240 ккал',yt:'гречка+с+овощами'},
+  {n:'Омлет с зеленью',t:'10 мин',k:'180 ккал',yt:'омлет+рецепт+пп'},
+  {n:'Творожная запеканка',t:'40 мин',k:'220 ккал',yt:'творожная+запеканка+пп'}];
+function loadRecipes(){const el=document.getElementById('recipes-list');
+  RCP.forEach(r=>{el.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">🍳</div><div><div class="ctit">${r.n}</div><div class="cbod">${r.t} · ${r.k}</div></div></div><div class="tags"><a class="tag" href="https://www.youtube.com/results?search_query=${r.yt}" target="_blank" style="color:#ffd166;text-decoration:none">▶ YouTube рецепт</a></div></div>`})}
 
-  // Haptic
-  tg?.HapticFeedback?.selectionChanged();
+// MEDIA
+const lists={movie:[],music:[],books:[]};
+const MOV=[{t:'Начало',y:'2010',g:'Триллер',w:'Захватывает с первых минут'},{t:'Интерстеллар',y:'2014',g:'Фантастика',w:'Для вдохновения'},{t:'Паразиты',y:'2019',g:'Артхаус',w:'Редкий бриллиант'}];
+const MUS=[{a:'Marconi Union',t:'Weightless',m:'Расслабление',yt:'Marconi+Union+Weightless'},{a:'Hans Zimmer',t:'Time',m:'Вдохновение',yt:'Hans+Zimmer+Time'},{a:'Lofi Hip Hop',t:'Study Beats',m:'Фокус',yt:'lofi+hip+hop+study'}];
+const BKS=[{t:'Атомные привычки',a:'Джеймс Клир',g:'Саморазвитие'},{t:'Думай медленно',a:'Канеман',g:'Психология'},{t:'Sapiens',a:'Харари',g:'Нон-фикшн'}];
+
+function loadMedia(){
+  const mr=document.getElementById('movie-recs');mr.innerHTML='';
+  MOV.forEach((m,i)=>{mr.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">🎬</div><div><div class="ctit">${m.t} (${m.y})</div><div class="cbod">${m.g} · ${m.w}</div></div></div><div class="tags"><span class="tag" onclick="addList('movie','${m.t}','${m.y}',this)">+ В список</span><a class="tag" href="https://www.kinopoisk.ru/search/?text=${encodeURIComponent(m.t)}" target="_blank" style="color:#ffd166;text-decoration:none">🎬 Кинопоиск</a></div></div>`});
+  const mur=document.getElementById('music-recs');mur.innerHTML='';
+  MUS.forEach(t=>{mur.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">🎵</div><div><div class="ctit">${t.a} — ${t.t}</div><div class="cbod">${t.m}</div></div></div><div class="tags"><span class="tag" onclick="addList('music','${t.a} — ${t.t}','',this)">+ Сохранить</span><a class="tag" href="https://www.youtube.com/results?search_query=${t.yt}" target="_blank" style="color:#ffd166;text-decoration:none">▶ YouTube</a><a class="tag" href="https://music.yandex.ru/search?text=${encodeURIComponent(t.t)}" target="_blank" style="color:#ff6b9d;text-decoration:none">🎵 Яндекс</a></div></div>`});
+  const br=document.getElementById('books-recs');br.innerHTML='';
+  BKS.forEach(b=>{br.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">📖</div><div><div class="ctit">${b.t}</div><div class="cbod">${b.a} · ${b.g}</div></div></div><div class="tags"><span class="tag" onclick="addList('books','${b.t}','${b.a}',this)">+ В список</span><a class="tag" href="https://www.litres.ru/search/?q=${encodeURIComponent(b.t)}" target="_blank" style="color:#ffd166;text-decoration:none">📖 ЛитРес</a><a class="tag" href="https://bookmate.com/search?q=${encodeURIComponent(b.t)}" target="_blank" style="color:#ff6b9d;text-decoration:none">📗 Букмейт</a></div></div>`});
 }
 
-// ── Мысли дня (адаптивные) ─────────────────────────
-const THOUGHTS = {
-  cut: [
-    "Дисциплина — это мост между целью и достижением. Каждый день выбор в пользу плана — это шаг вперёд.",
-    "Голод — это не враг. Это сигнал что ты на правильном пути.",
-    "Тело меняется медленно, но неотвратимо. Держись курса.",
-    "Срыв — это не провал. Это данные. Что случилось? Исправь — и иди дальше.",
-  ],
-  bulk: [
-    "Мышцы строятся не в зале — они строятся за столом и во сне.",
-    "Прогрессия нагрузки — единственный закон набора массы.",
-    "Ешь, тренируйся, спи. Повторяй пока не достигнешь цели.",
-    "Терпение — это тоже тренировка. Масса приходит к тем кто ждёт.",
-  ],
-  health: [
-    "Здоровье — это не отсутствие болезни. Это энергия на всё что важно.",
-    "Маленькие привычки, повторяемые каждый день, создают большие изменения.",
-    "Слушай тело. Оно знает что ему нужно — нужно только научиться слышать.",
-    "Баланс — это не компромисс. Это мудрость.",
-  ],
-  energy: [
-    "Энергия не берётся из кофе — она строится из сна, еды и движения.",
-    "Фокус — это мышца. Тренируй её как любую другую.",
-    "Лучшая инвестиция — в качество твоего внимания.",
-    "Устал? Это сигнал восстановиться, а не работать сильнее.",
-  ],
-  detox: [
-    "Пауза — это не остановка. Это перезагрузка.",
-    "Тишина — самый недооценённый ресурс современного человека.",
-    "Убери лишнее. Останется только важное.",
-    "Чистота снаружи начинается с чистоты внутри.",
-  ],
-};
-
-function refreshThought(mode) {
-  const el = document.getElementById('thought-' + mode);
-  if (!el) return;
-  const arr = THOUGHTS[mode];
-  const idx = Math.floor(Math.random() * arr.length);
-  el.style.opacity = '0';
-  el.style.transform = 'translateY(6px)';
-  setTimeout(() => {
-    el.textContent = arr[idx];
-    el.style.transition = 'all .35s ease';
-    el.style.opacity = '1';
-    el.style.transform = 'translateY(0)';
-  }, 200);
+function addList(type,title,sub,el){
+  if(lists[type].find(x=>x.t===title)){toast('Уже в списке');return;}
+  lists[type].push({t:title,s:sub});el.textContent='✓ Добавлено';el.style.color='#52e0a0';
+  tg?.HapticFeedback?.impactOccurred('medium');toast('Добавлено: '+title.slice(0,25));
+  renderLists();
 }
 
-// Обновляем мысль при загрузке
-refreshThought(current);
+function renderLists(){
+  document.getElementById('wl-count').textContent=lists.movie.length+' в списке';
+  ['movie','music','books'].forEach(type=>{
+    const ids={movie:'movie-wl',music:'music-saved',books:'books-rl'};
+    const el=document.getElementById(ids[type]);
+    if(!lists[type].length){el.innerHTML='<div class="empty"><div class="empty-ico">📝</div><div class="empty-txt">Пока пусто</div></div>';return;}
+    el.innerHTML='<div class="card">'+lists[type].map((m,i)=>`<div class="wli"><div class="wln">${i+1}</div><div class="wlb"><div class="wlt">${m.t}</div>${m.s?`<div class="wls">${m.s}</div>`:''}</div><div class="wld" onclick="rmList('${type}',${i})">×</div></div>`).join('')+'</div>';
+  });
+}
+function rmList(type,idx){lists[type].splice(idx,1);renderLists();tg?.HapticFeedback?.impactOccurred('light')}
 
-// ── Действия → отправка в бот ──────────────────────
-function tgAction(cmd) {
+// FINANCE
+const txns=[{c:'🛒 Продукты',a:2400,d:'exp'},{c:'🚗 Бензин',a:1800,d:'exp'},{c:'💼 Зарплата',a:45000,d:'inc'},{c:'☕ Кафе',a:890,d:'exp'}];
+function loadFin(){
+  let inc=0,exp=0;txns.forEach(t=>t.d==='inc'?inc+=t.a:exp+=t.a);
+  const bal=inc-exp;
+  document.getElementById('f-inc').textContent=inc.toLocaleString('ru')+' ₽';
+  document.getElementById('f-exp').textContent=exp.toLocaleString('ru')+' ₽';
+  document.getElementById('f-bal').textContent=(bal>0?'+':'')+bal.toLocaleString('ru')+' ₽';
+  document.getElementById('f-bal').style.color=bal>=0?'#2ed573':'#ff4757';
+  document.getElementById('fin-balance').textContent=(bal>0?'+':'')+bal.toLocaleString('ru')+' ₽';
+  document.getElementById('fin-balance').style.color=bal>=0?'#2ed573':'#ff4757';
+  const cats={};txns.filter(t=>t.d==='exp').forEach(t=>cats[t.c]=(cats[t.c]||0)+t.a);
+  const ce=document.getElementById('fin-cats');ce.innerHTML='';
+  Object.entries(cats).sort((a,b)=>b[1]-a[1]).forEach(([c,a])=>{const p=Math.round(a/exp*100);ce.innerHTML+=`<div class="card al" style="margin-bottom:8px"><div class="crow"><div style="flex:1;font-size:13px;font-weight:600;color:var(--text)">${c}</div><div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">${a.toLocaleString('ru')} ₽</div></div><div class="pbar"><div class="pfill" style="width:${p}%;background:#ffa502"></div></div></div>`});
+  const gl=document.getElementById('fin-goals-list');gl.innerHTML='';
+  const goals=[{title:'Отпуск в Сочи',e:'✈️',target:80000,current:34000,dl:'01.07.2026'}];
+  goals.forEach(g=>{const p=Math.round(g.current/g.target*100);gl.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">${g.e}</div><div><div class="ctit">${g.title}</div><div class="cbod">${g.current.toLocaleString('ru')} / ${g.target.toLocaleString('ru')} ₽</div></div></div><div class="prow"><span>${p}%</span><span>до ${g.dl}</span></div><div class="pbar"><div class="pfill" style="width:${p}%;background:#ffa502"></div></div></div>`});
+  const fh=document.getElementById('fin-hist');fh.innerHTML='';
+  txns.slice().reverse().forEach(t=>{fh.innerHTML+=`<div class="card" style="margin-bottom:8px"><div class="crow"><div style="flex:1;font-size:13px;font-weight:600">${t.c}</div><div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:${t.d==='inc'?'#2ed573':'#ff4757'}">${t.d==='inc'?'+':'-'}${t.a.toLocaleString('ru')} ₽</div></div></div>`});
+}
+function addExp(label){
+  const amt=prompt('Сумма ('+label+'):');if(!amt||isNaN(+amt))return;
+  txns.push({c:label,a:+amt,d:'exp'});loadFin();
+  toast('Записано: '+label+' — '+(+amt).toLocaleString('ru')+' ₽');
   tg?.HapticFeedback?.impactOccurred('medium');
-  const cmds = {
-    plan:     '/plan',
-    weight:   '/weight',
-    recipes:  '/recipes',
-    shopping: '/shopping',
-    morning:  '/morning',
-    movie:    '/movie',
-    music:    '/music',
-    books:    '/books',
-    detox:    '/fridge',
-  };
-  const text = cmds[cmd] || '/' + cmd;
-  if (tg) {
-    tg.sendData(JSON.stringify({ action: cmd, mode: current }));
-    tg.close();
-  } else {
-    toast('Открой в Telegram чтобы использовать');
-  }
 }
 
-// ── Toast ───────────────────────────────────────────
-function toast(msg) {
-  tg?.HapticFeedback?.impactOccurred('light');
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(window._toastTimer);
-  window._toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+// ACTIONS
+function tgAction(cmd){
+  tg?.HapticFeedback?.impactOccurred('medium');
+  const m={plan:'/plan',recipes:'/recipes',shopping:'/shopping',movie:'/movie',music:'/music',books:'/books',finance:'/finance'};
+  if(tg){tg.sendData(JSON.stringify({action:cmd}));tg.close();}
+  else toast('Открой в Telegram');
 }
 
-// ── Определяем активный режим из профиля ───────────
-// Можно передать через URL: ?mode=bulk
-const urlMode = new URLSearchParams(location.search).get('mode');
-if (urlMode && THOUGHTS[urlMode]) {
-  showPage(urlMode);
-}
+// TOAST
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>el.classList.remove('show'),2200)}
 
-// Предотвращаем закрытие при свайпе вниз
-document.addEventListener('touchmove', e => {
-  const scrollEl = e.target.closest('.page');
-  if (scrollEl && scrollEl.scrollTop > 0) e.stopPropagation();
-}, { passive: false });
+// INIT
+loadShop();loadMedia();renderLists();loadFin();
+const urlTab=new URLSearchParams(location.search).get('tab');
+if(urlTab)showScreen(urlTab);
 </script>
 </body>
 </html>

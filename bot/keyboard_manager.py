@@ -82,12 +82,25 @@ def _label_weight(user_id: int) -> str:
 
 def get_main_kb(user_id: int = 0) -> ReplyKeyboardMarkup:
     """
-    2 строки × 3 кнопки.
-    Верхняя строка меняется по времени суток.
+    Reply-клавиатура с WebApp кнопкой сверху.
     """
+    from bot.config import WEBAPP_URL
+    from aiogram.types import WebAppInfo
+
     h = _hour()
 
-    # Первая строка — контекстная
+    builder = ReplyKeyboardBuilder()
+
+    # ── Большая кнопка запуска WebApp (если задан URL) ──
+    if WEBAPP_URL:
+        builder.row(
+            KeyboardButton(
+                text="📱 Открыть Wingman",
+                web_app=WebAppInfo(url=WEBAPP_URL)
+            )
+        )
+
+    # ── Контекстная строка по времени ──
     if 5 <= h < 12:
         row1 = [
             KeyboardButton(text="☀️ Сегодня"),
@@ -106,23 +119,20 @@ def get_main_kb(user_id: int = 0) -> ReplyKeyboardMarkup:
             KeyboardButton(text="💪 Прогресс"),
             KeyboardButton(text=_label_weight(user_id)),
         ]
+    builder.row(*row1)
 
-    # Вторая строка — постоянная (v4: добавлены Кино и Финансы)
-    row2 = [
+    # ── Постоянные строки ──
+    builder.row(
         KeyboardButton(text="💡 Идея"),
         KeyboardButton(text="🛒 Покупки"),
         KeyboardButton(text="⚙️ Ещё"),
-    ]
-    row3 = [
+    )
+    builder.row(
         KeyboardButton(text="🎬 Кино"),
         KeyboardButton(text="💰 Финансы"),
         KeyboardButton(text="🎯 LifeMode"),
-    ]
+    )
 
-    builder = ReplyKeyboardBuilder()
-    builder.row(*row1)
-    builder.row(*row2)
-    builder.row(*row3)
     return builder.as_markup(resize_keyboard=True, persistent=True)
 
 
