@@ -1,0 +1,9 @@
+{
+  "build": {
+    "builder": "STATIC",
+    "watchPatterns": ["webapp/**"]
+  },
+  "deploy": {
+    "staticDir": "webapp"
+  }
+}

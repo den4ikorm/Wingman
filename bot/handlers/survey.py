@@ -114,6 +114,8 @@ def parse_time_smart(text: str):
 @router.message(F.text.casefold() == "анкета")
 @router.message(Command("survey"))
 async def start_survey(message: types.Message, state: FSMContext):
+    # FIX B11: сбрасываем любое предыдущее FSM состояние (Travel, Idea и т.д.)
+    await state.clear()
     await state.set_state(Survey.name)
     await ask(message, 1, "Давай познакомимся 🤝\n\nКак тебя зовут?")
 

@@ -1,6 +1,0 @@
-.env
-__pycache__/
-*.pyc
-data/profiles/
-data/insights/
-*.bak

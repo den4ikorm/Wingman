@@ -107,16 +107,22 @@ def get_main_kb(user_id: int = 0) -> ReplyKeyboardMarkup:
             KeyboardButton(text=_label_weight(user_id)),
         ]
 
-    # Вторая строка — постоянная
+    # Вторая строка — постоянная (v4: добавлены Кино и Финансы)
     row2 = [
         KeyboardButton(text="💡 Идея"),
         KeyboardButton(text="🛒 Покупки"),
         KeyboardButton(text="⚙️ Ещё"),
     ]
+    row3 = [
+        KeyboardButton(text="🎬 Кино"),
+        KeyboardButton(text="💰 Финансы"),
+        KeyboardButton(text="🎯 LifeMode"),
+    ]
 
     builder = ReplyKeyboardBuilder()
     builder.row(*row1)
     builder.row(*row2)
+    builder.row(*row3)
     return builder.as_markup(resize_keyboard=True, persistent=True)
 
 
@@ -239,6 +245,7 @@ def after_weight_kb() -> InlineKeyboardMarkup:
 NAV_TEXTS = set(SUBMENUS.keys()) | {
     "⚖️ Вес (!)", "⚖️ Вес",
     "☀️ Доброе утро", "🌤 День", "🌙 Добрый вечер", "🌙 Ночь",
+    "🎬 Кино", "💰 Финансы", "🎯 LifeMode",
 }
 
 
@@ -249,18 +256,41 @@ NAV_TEXTS = set(SUBMENUS.keys()) | {
 async def handle_nav(message: types.Message):
     text = message.text
 
-    # Алиасы → нормализуем
-    # Кнопка "Вес" — сразу показываем субменю прогресса с инструкцией
+    # Кнопка "Вес"
     if text in ("⚖️ Вес (!)", "⚖️ Вес"):
         caption, kb = SUBMENUS["💪 Прогресс"]
         alert = ""
         if text == "⚖️ Вес (!)":
             alert = "⚠️ _Вес не вносился 2+ дня_\n\n"
-        await message.answer(
-            alert + caption,
-            parse_mode="Markdown",
-            reply_markup=kb
-        )
+        await message.answer(alert + caption, parse_mode="Markdown", reply_markup=kb)
+        return
+
+    # Новые кнопки нижней панели v4 — перенаправляем в нужные handlers
+    if text == "🎬 Кино":
+        from bot.handlers.content_handler import cmd_movie
+        from aiogram.fsm.context import FSMContext
+        # Создаём dummy state через dp storage
+        await message.answer("🎬 Кино", parse_mode="Markdown")
+        try:
+            from bot.handlers.content_handler import cmd_movie as _cm
+            # Эмулируем команду через send_message
+            await message.bot.send_message(message.from_user.id, "/movie")
+        except Exception:
+            await message.answer("Напиши /movie для рекомендаций кино 🎬")
+        return
+
+    if text == "💰 Финансы":
+        try:
+            await message.bot.send_message(message.from_user.id, "/finance")
+        except Exception:
+            await message.answer("Напиши /finance для финансов 💰")
+        return
+
+    if text == "🎯 LifeMode":
+        try:
+            await message.bot.send_message(message.from_user.id, "/lifemode")
+        except Exception:
+            await message.answer("Напиши /lifemode для выбора режима 🎯")
         return
 
     aliases = {
@@ -278,43 +308,15 @@ async def handle_nav(message: types.Message):
 
 # ── Inline-колбэки субменю ────────────────────────────
 
+
 @nav_router.callback_query(F.data.startswith("nav_"), StateFilter(default_state))
 async def handle_nav_cb(cb: types.CallbackQuery):
     await cb.answer()
-    user_id = cb.from_user.id
-    action = cb.data  # nav_diet, nav_recipes, etc.
+    user_id = cb.from_user.id   # FIX B2a: всегда берём из callback, не из cb.message
+    action = cb.data
 
-    # Маппинг action → команда/логика
-    routes = {
-        "nav_diet":       "/plan",
-        "nav_recipes":    "/recipes",
-        "nav_shopping":   "/shopping",
-        "nav_fridge":     "/fridge",
-        "nav_mode":       "/mode",
-        "nav_weight":     "/weight",
-        "nav_progress":   "/progress",
-        "nav_streak":     "/streak",
-        "nav_profile":    "/profile",
-        "nav_morning":    "/morning",
-        "nav_plan":       "/plan",
-        "nav_event":      "/event",
-        "nav_evening":    "evening",
-        "nav_recs":       "evening",
-        "nav_weekly":     "/weekly",
-        "nav_travel":     "/travel",
-        "nav_healer":     "/healer",
-        "nav_psychotype": "/psychotype",
-        "nav_feedback":   "/feedback",
-        "nav_survey":     "анкета",
-        "nav_food_sub":   "🍽 Питание",
-        "nav_progress_sub": "💪 Прогресс",
-    }
+    # Специальные обработчики — прямые вызовы без send_message (FIX B2b)
 
-    cmd = routes.get(action)
-    if not cmd:
-        return
-
-    # Специальные обработчики — выполняем сразу
     if action == "nav_weight":
         await cb.message.answer(
             "⚖️ *Внести вес*\n\nНапиши число — например:\n`/weight 78.5`",
@@ -324,39 +326,86 @@ async def handle_nav_cb(cb: types.CallbackQuery):
         return
 
     if action == "nav_profile":
-        from bot.handlers.common import cmd_profile
-        await cmd_profile(cb.message)
+        # FIX B2a: передаём user_id явно, не cb.message (from_user у него — бот)
+        from bot.handlers.common import _profile_for_user
+        await _profile_for_user(user_id, cb.message)
         return
 
     if action == "nav_streak":
-        from bot.handlers.common import cmd_streak
-        await cmd_streak(cb.message)
+        from bot.handlers.common import _streak_for_user
+        await _streak_for_user(user_id, cb.message)
+        return
+
+    if action == "nav_travel":
+        # FIX B2b: прямой вызов handler, а не send_message('/travel')
+        from bot.handlers.travel_handler import cmd_travel
+        from aiogram.fsm.context import FSMContext
+        from aiogram.fsm.storage.base import StorageKey
+        state: FSMContext = FSMContext(
+            storage=cb.bot.fsm_storage if hasattr(cb.bot, "fsm_storage") else None,
+            key=StorageKey(bot_id=cb.bot.id, chat_id=cb.message.chat.id, user_id=user_id)
+        )
+        try:
+            await cmd_travel(cb.message, state)
+        except Exception as e:
+            logger.warning(f"nav_travel direct call failed ({e}), fallback")
+            await cb.message.answer("✈️ Планировщик путешествий — напиши /travel")
         return
 
     if action == "nav_survey":
-        from bot.handlers.survey import cmd_start_survey
-        # Эмулируем Message с нужным user
-        await cb.message.answer("Начинаю новую анкету — напиши /start")
-        return
-
-    if cmd.startswith("/") or cmd == "анкета":
-        # Отправляем команду как текст чтобы роутер её подхватил
-        fake = cb.message.model_copy(update={"text": cmd})
+        # FIX B-survey: прямой запуск анкеты
+        from bot.handlers.survey import start_survey
+        from aiogram.fsm.context import FSMContext
+        from aiogram.fsm.storage.base import StorageKey
+        state: FSMContext = FSMContext(
+            storage=cb.bot.fsm_storage if hasattr(cb.bot, "fsm_storage") else None,
+            key=StorageKey(bot_id=cb.bot.id, chat_id=cb.message.chat.id, user_id=user_id)
+        )
         try:
-            from aiogram import Bot
-            await cb.bot.send_message(cb.from_user.id, cmd)
+            await start_survey(cb.message, state)
         except Exception:
-            await cb.message.answer(f"Напиши `{cmd}`", parse_mode="Markdown")
+            await cb.message.answer("📝 Новая анкета — напиши *анкета*", parse_mode="Markdown")
         return
 
-    if cmd in ("🍽 Питание", "💪 Прогресс"):
-        # Показываем вложенное субменю
-        caption, kb = SUBMENUS[cmd]
+    if action == "nav_diet":
+        # FIX B4: отдельный маршрут для недельного меню (не дублирует nav_plan)
+        from bot.handlers.common import cmd_diet_week
+        await cmd_diet_week(cb.message, user_id)
+        return
+
+    if action in ("nav_food_sub", "nav_progress_sub"):
+        key = "🍽 Питание" if action == "nav_food_sub" else "💪 Прогресс"
+        caption, kb = SUBMENUS[key]
         await cb.message.answer(caption, parse_mode="Markdown", reply_markup=kb)
-    elif cmd == "evening":
-        # Запускаем вечерний модуль
+        return
+
+    if action == "nav_evening" or action == "nav_recs":
         from bot.handlers.evening_handler import send_evening_inline
         try:
             await send_evening_inline(cb.message, user_id)
         except Exception:
             await cb.message.answer("🌙 Вечерний режим — напиши `/evening`", parse_mode="Markdown")
+        return
+
+    # Команды, которые можно вызвать через send_message (нет FSM, нет user_id проблемы)
+    text_routes = {
+        "nav_recipes":    "/recipes",
+        "nav_shopping":   "/shopping",
+        "nav_fridge":     "/fridge",
+        "nav_mode":       "/mode",
+        "nav_progress":   "/progress",
+        "nav_morning":    "/morning",
+        "nav_plan":       "/plan",
+        "nav_event":      "/event",
+        "nav_weekly":     "/weekly",
+        "nav_healer":     "/healer",
+        "nav_psychotype": "/psychotype",
+        "nav_feedback":   "/feedback",
+    }
+    cmd = text_routes.get(action)
+    if cmd:
+        try:
+            await cb.bot.send_message(user_id, cmd)
+        except Exception:
+            await cb.message.answer(f"Напиши `{cmd}`", parse_mode="Markdown")
+

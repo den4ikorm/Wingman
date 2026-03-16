@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>AEatolog</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
+
+:root {
+  --bg: #0b0e14;
+  --s1: #111620;
+  --s2: #181f2e;
+  --s3: #1e2840;
+  --border: rgba(255,255,255,0.07);
+  --a1: #5b8fff;   /* синий */
+  --a2: #ff6b6b;   /* красный */
+  --a3: #52e0a0;   /* зелёный */
+  --a4: #ffd166;   /* жёлтый */
+  --a5: #c77dff;   /* фиолетовый */
+  --text: #e2e8f0;
+  --muted: #4a5568;
+  --muted2: #2d3748;
+  --r: 16px;
+  --rsm: 10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { height: 100%; overflow: hidden; }
+
+body {
+  font-family: 'Raleway', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── SCROLL AREA ── */
+.view {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 80px;
+}
+.view::-webkit-scrollbar { display: none; }
+
+/* ── TAB PAGES ── */
+.tab-page { display: none; }
+.tab-page.active { display: block; }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  display: flex;
+  background: var(--s1);
+  border-top: 1px solid var(--border);
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+  position: relative;
+  z-index: 100;
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+  color: var(--muted);
+}
+
+.nav-item.active { color: var(--a1); }
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 15%; right: 15%;
+  height: 2px;
+  background: var(--a1);
+  border-radius: 0 0 3px 3px;
+}
+
+.nav-icon { font-size: 1.25rem; line-height: 1; }
+.nav-label { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* ── SHARED COMPONENTS ── */
+.page-header {
+  padding: 20px 16px 12px;
+  position: relative;
+}
+
+.page-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 16px; right: 16px;
+  height: 1px;
+  background: var(--border);
+}
+
+.page-title {
+  font-family: 'Raleway', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.page-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+.section {
+  padding: 16px 16px 0;
+}
+
+.section-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.card + .card { margin-top: 8px; }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.row:last-child { border-bottom: none; }
+.row:active { background: var(--s2); }
+
+.row-icon {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.row-body { flex: 1; min-width: 0; }
+.row-title { font-size: 0.88rem; font-weight: 600; }
+.row-sub { font-size: 0.7rem; color: var(--muted); margin-top: 1px; }
+.row-arrow { color: var(--muted); font-size: 0.8rem; }
+.row-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 100px;
+  flex-shrink: 0;
+}
+
+/* ── PILL / BADGE ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 100px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  letter-spacing: 0.03em;
+}
+.pill-blue  { background: rgba(91,143,255,0.15); color: var(--a1); border: 1px solid rgba(91,143,255,0.25); }
+.pill-green { background: rgba(82,224,160,0.12); color: var(--a3); border: 1px solid rgba(82,224,160,0.2); }
+.pill-red   { background: rgba(255,107,107,0.12); color: var(--a2); border: 1px solid rgba(255,107,107,0.2); }
+.pill-gold  { background: rgba(255,209,102,0.12); color: var(--a4); border: 1px solid rgba(255,209,102,0.2); }
+.pill-purple{ background: rgba(199,125,255,0.12); color: var(--a5); border: 1px solid rgba(199,125,255,0.2); }
+
+/* ── PROGRESS RING ── */
+.ring-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ring-svg { width: 54px; height: 54px; transform: rotate(-90deg); }
+.ring-bg { fill: none; stroke: var(--muted2); stroke-width: 5; }
+.ring-fg { fill: none; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 132; stroke-dashoffset: 132; transition: stroke-dashoffset 1s ease; }
+.ring-label { font-size: 0.6rem; color: var(--muted); font-weight: 600; }
+.ring-val { font-size: 0.78rem; font-weight: 800; }
+
+/* ── STORY CARD ── */
+.story-card {
+  background: linear-gradient(135deg, var(--s2), var(--s3));
+  border: 1px solid rgba(91,143,255,0.2);
+  border-radius: var(--r);
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.story-card::before {
+  content: '✦';
+  position: absolute;
+  top: -10px; right: -10px;
+  font-size: 4rem;
+  opacity: 0.04;
+  color: var(--a1);
+}
+
+.story-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--a1);
+  margin-bottom: 8px;
+}
+
+.story-text {
+  font-family: 'Lora', serif;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: #c8d4e8;
+  font-style: italic;
+}
+
+.story-footer {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.story-author { font-size: 0.7rem; color: var(--muted); }
+
+.story-audio-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(91,143,255,0.1);
+  border: 1px solid rgba(91,143,255,0.25);
+  border-radius: 100px;
+  padding: 4px 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--a1);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.story-audio-btn:active { background: rgba(91,143,255,0.2); }
+
+/* ── RINGS ROW ── */
+.rings-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 12px 16px 0;
+}
+
+.ring-card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── MOOD ROW ── */
+.mood-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.mood-row::-webkit-scrollbar { display: none; }
+
+.mood-btn {
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  background: var(--s1);
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+
+.mood-btn.active {
+  border-color: var(--a1);
+  background: rgba(91,143,255,0.12);
+  transform: scale(1.12);
+}
+
+/* ── WATER TRACKER ── */
+.water-track {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px;
+  margin: 0 16px;
+}
+
+.water-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.water-title { font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+.water-amount { font-size: 0.78rem; color: var(--a1); font-weight: 700; }
+
+.water-bar { height: 7px; background: var(--muted2); border-radius: 100px; overflow: hidden; margin-bottom: 10px; }
+.water-fill { height: 100%; background: linear-gradient(90deg, var(--a1), var(--a3)); border-radius: 100px; transition: width 0.4s; }
+
+.water-btns { display: flex; gap: 6px; }
+.wbtn {
+  flex: 1;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: var(--rsm);
+  padding: 7px 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--a1);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s;
+}
+.wbtn:active { background: rgba(91,143,255,0.15); }
+
+/* ── STREAK CARD ── */
+.streak-card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 16px;
+}
+
+.streak-flame { font-size: 2rem; animation: flame 2s ease-in-out infinite; }
+@keyframes flame { 0%,100%{transform:scale(1) rotate(-3deg)} 50%{transform:scale(1.08) rotate(3deg)} }
+
+.streak-info { flex: 1; }
+.streak-num { font-size: 1.8rem; font-weight: 800; color: var(--a4); line-height: 1; font-family: 'Raleway', sans-serif; }
+.streak-sub { font-size: 0.7rem; color: var(--muted); }
+.lives-row { display: flex; gap: 2px; margin-top: 4px; }
+.life { font-size: 0.9rem; filter: grayscale(1) opacity(0.3); transition: filter 0.3s; }
+.life.on { filter: none; }
+
+/* ── FINANCE ── */
+.budget-card {
+  background: linear-gradient(135deg, #1a1f35, #0f1628);
+  border: 1px solid rgba(91,143,255,0.2);
+  border-radius: var(--r);
+  padding: 18px;
+  margin: 0 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.budget-card::after {
+  content: '₽';
+  position: absolute;
+  right: -5px; bottom: -15px;
+  font-size: 6rem;
+  font-weight: 800;
+  opacity: 0.04;
+  color: var(--a1);
+}
+
+.budget-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.budget-amount { font-size: 2rem; font-weight: 800; color: var(--a1); line-height: 1; }
+.budget-sub { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+.budget-bar { height: 6px; background: var(--muted2); border-radius: 100px; overflow: hidden; margin: 12px 0 6px; }
+.budget-fill { height: 100%; background: linear-gradient(90deg, var(--a3), var(--a4)); border-radius: 100px; transition: width 0.6s; }
+.budget-stats { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--muted); }
+
+/* ── SHOP LIST ── */
+.shop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: opacity 0.2s;
+}
+.shop-item:last-child { border-bottom: none; }
+.shop-item.bought { opacity: 0.35; }
+.shop-item.bought .shop-name { text-decoration: line-through; }
+
+.shop-check {
+  width: 20px; height: 20px;
+  border: 2px solid var(--muted2);
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.shop-item.bought .shop-check { background: var(--a3); border-color: var(--a3); color: #000; font-weight: 700; }
+
+.shop-name { flex: 1; font-size: 0.85rem; }
+.shop-price { font-size: 0.75rem; color: var(--a4); font-weight: 600; flex-shrink: 0; }
+
+.add-shop-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+.add-inp {
+  flex: 1;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: var(--rsm);
+  padding: 9px 12px;
+  font-family: 'Raleway', sans-serif;
+  font-size: 0.82rem;
+  color: var(--text);
+  outline: none;
+}
+.add-inp::placeholder { color: var(--muted); }
+.add-inp:focus { border-color: rgba(91,143,255,0.4); }
+.add-btn {
+  width: 38px; height: 38px;
+  background: var(--a1);
+  border: none;
+  border-radius: var(--rsm);
+  color: #000;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── PROFILE ── */
+.avatar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 16px;
+  gap: 8px;
+}
+
+.avatar {
+  width: 72px; height: 72px;
+  background: linear-gradient(135deg, var(--a1), var(--a5));
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem;
+}
+
+.profile-name { font-size: 1.1rem; font-weight: 800; }
+.profile-bio { font-size: 0.75rem; color: var(--muted); text-align: center; }
+
+.style-card {
+  background: linear-gradient(135deg, rgba(199,125,255,0.1), rgba(91,143,255,0.08));
+  border: 1px solid rgba(199,125,255,0.2);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  margin: 0 16px;
+}
+.style-label { font-size: 0.62rem; color: var(--a5); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.style-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
+.style-desc { font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+
+/* ── INSIGHT CARD (советникия встроенная) ── */
+.insight-card {
+  background: linear-gradient(135deg, rgba(82,224,160,0.07), rgba(91,143,255,0.05));
+  border: 1px solid rgba(82,224,160,0.15);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  position: relative;
+}
+.insight-icon { font-size: 1.4rem; margin-bottom: 6px; display: block; }
+.insight-label { font-size: 0.6rem; color: var(--a3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.insight-text { font-size: 0.82rem; line-height: 1.6; color: #b8cce0; }
+.insight-action { margin-top: 8px; font-size: 0.72rem; color: var(--a3); font-weight: 600; cursor: pointer; }
+
+/* ── FAB ── */
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  width: 50px; height: 50px;
+  background: linear-gradient(135deg, var(--a1), var(--a5));
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(91,143,255,0.4);
+  z-index: 200;
+  transition: transform 0.2s;
+}
+.fab:active { transform: scale(0.92); }
+
+/* ── FAB MENU ── */
+.fab-menu {
+  position: fixed;
+  right: 16px;
+  bottom: calc(132px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+  z-index: 199;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.25s;
+}
+.fab-menu.open { opacity: 1; transform: translateY(0); pointer-events: all; }
+
+.fab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 8px 14px 8px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.fab-item:active { background: var(--s2); }
+.fab-item-icon { font-size: 1rem; }
+.fab-item-label { font-size: 0.78rem; font-weight: 600; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom) + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 8px 18px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: all 0.25s;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 999;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── OVERLAY для FAB ── */
+.fab-overlay {
+  position: fixed; inset: 0;
+  z-index: 198;
+  display: none;
+}
+.fab-overlay.open { display: block; }
+
+/* ── LOADER ── */
+.loader { width: 24px; height: 24px; border: 3px solid var(--muted2); border-top-color: var(--a1); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.center { display: flex; align-items: center; justify-content: center; padding: 30px; }
+
+/* ANIMATIONS */
+@keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+.anim { animation: fadeUp 0.4s ease both; }
+.anim-d1 { animation-delay: 0.05s; }
+.anim-d2 { animation-delay: 0.1s; }
+.anim-d3 { animation-delay: 0.15s; }
+.anim-d4 { animation-delay: 0.2s; }
+</style>
+</head>
+<body>
+
+<!-- ══════════ ЭКРАН ══════════ -->
+<div class="view" id="view">
+
+  <!-- ── 🏠 СЕГОДНЯ ── -->
+  <div class="tab-page active anim" id="tab-today">
+
+    <div class="page-header">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="page-title" id="greet-text">Привет 👋</div>
+          <div class="page-sub" id="greet-date">загрузка...</div>
+        </div>
+        <div class="pill pill-green" id="mode-badge">🥗 Режим 2</div>
+      </div>
+    </div>
+
+    <!-- Кольца -->
+    <div class="rings-row anim anim-d1">
+      <div class="ring-card">
+        <svg class="ring-svg" viewBox="0 0 54 54">
+          <circle class="ring-bg" cx="27" cy="27" r="21"/>
+          <circle class="ring-fg" id="r-tasks" cx="27" cy="27" r="21" style="stroke:var(--a3)"/>
+        </svg>
+        <div class="ring-val" id="rv-tasks" style="color:var(--a3)">0%</div>
+        <div class="ring-label">Задачи</div>
+      </div>
+      <div class="ring-card">
+        <svg class="ring-svg" viewBox="0 0 54 54">
+          <circle class="ring-bg" cx="27" cy="27" r="21"/>
+          <circle class="ring-fg" id="r-water" cx="27" cy="27" r="21" style="stroke:var(--a1)"/>
+        </svg>
+        <div class="ring-val" id="rv-water" style="color:var(--a1)">0%</div>
+        <div class="ring-label">Вода</div>
+      </div>
+      <div class="ring-card">
+        <svg class="ring-svg" viewBox="0 0 54 54">
+          <circle class="ring-bg" cx="27" cy="27" r="21"/>
+          <circle class="ring-fg" id="r-course" cx="27" cy="27" r="21" style="stroke:var(--a5)"/>
+        </svg>
+        <div class="ring-val" id="rv-course" style="color:var(--a5)">0%</div>
+        <div class="ring-label">Курс</div>
+      </div>
+    </div>
+
+    <!-- Настроение -->
+    <div class="section anim anim-d2">
+      <div class="section-title">Как ты сейчас?</div>
+    </div>
+    <div class="mood-row anim anim-d2">
+      <button class="mood-btn" data-m="5" onclick="setMood(this)">😄</button>
+      <button class="mood-btn" data-m="4" onclick="setMood(this)">🙂</button>
+      <button class="mood-btn" data-m="3" onclick="setMood(this)">😐</button>
+      <button class="mood-btn" data-m="2" onclick="setMood(this)">😔</button>
+      <button class="mood-btn" data-m="1" onclick="setMood(this)">😤</button>
+      <button class="mood-btn" data-m="0" onclick="setMood(this)">🥱</button>
+    </div>
+
+    <!-- Инсайт дня (советникия встроенная) -->
+    <div class="section anim anim-d2">
+      <div class="section-title">Мысль дня</div>
+      <div class="insight-card">
+        <span class="insight-icon" id="ins-icon">🌱</span>
+        <div class="insight-label" style="opacity:0.5">День <span id="ins-day">1</span></div>
+        <div class="insight-text" id="ins-text">Загрузка...</div>
+        <div class="insight-action" onclick="nextInsight()">Следующая мысль →</div>
+      </div>
+    </div>
+
+    <!-- История дня -->
+    <div class="section anim anim-d3">
+      <div class="section-title">История дня</div>
+      <div class="story-card">
+        <div class="story-tag">✦ Для тебя</div>
+        <div class="story-text" id="story-text">Загрузка истории...</div>
+        <div class="story-footer">
+          <div class="story-author" id="story-author">— AEatolog</div>
+          <div class="story-audio-btn" onclick="playStory()">
+            🎧 Слушать
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Вода -->
+    <div class="section anim anim-d3">
+      <div class="section-title">Вода</div>
+    </div>
+    <div class="water-track anim anim-d3">
+      <div class="water-head">
+        <div class="water-title">💧 Трекер</div>
+        <div class="water-amount" id="water-disp">0 / 2000 мл</div>
+      </div>
+      <div class="water-bar"><div class="water-fill" id="water-fill" style="width:0%"></div></div>
+      <div class="water-btns">
+        <div class="wbtn" onclick="addWater(150)">+150</div>
+        <div class="wbtn" onclick="addWater(200)">+200</div>
+        <div class="wbtn" onclick="addWater(250)">+250</div>
+        <div class="wbtn" onclick="addWater(350)">+350</div>
+      </div>
+    </div>
+
+    <!-- Стрик -->
+    <div class="section anim anim-d4">
+      <div class="section-title">Серия</div>
+    </div>
+    <div class="streak-card anim anim-d4">
+      <div class="streak-flame">🔥</div>
+      <div class="streak-info">
+        <div class="streak-num" id="streak-num">0</div>
+        <div class="streak-sub">дней подряд</div>
+        <div class="lives-row" id="lives-row">
+          <span class="life on">❤️</span>
+          <span class="life on">❤️</span>
+          <span class="life on">❤️</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+  </div>
+
+  <!-- ── 🥗 ПИТАНИЕ ── -->
+  <div class="tab-page" id="tab-food">
+    <div class="page-header">
+      <div class="page-title">🥗 Питание</div>
+      <div class="page-sub">Диета · Рецепты · </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Быстрые действия</div>
+      <div class="card">
+        <div class="row" onclick="openFood('diet')">
+          <div class="row-icon" style="background:rgba(82,224,160,0.12)">🥗</div>
+          <div class="row-body">
+            <div class="row-title">Моя диета</div>
+            <div class="row-sub">План питания на сегодня</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="openFood('recipes')">
+          <div class="row-icon" style="background:rgba(255,209,102,0.1)">🍳</div>
+          <div class="row-body">
+            <div class="row-title">Рецепты</div>
+            <div class="row-sub">Завтрак · Обед · Ужин + YouTube</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="openFood('fridge')">
+          <div class="row-icon" style="background:rgba(91,143,255,0.1)">🧊</div>
+          <div class="row-body">
+            <div class="row-title">Из холодильника</div>
+            <div class="row-sub">Скажи что есть — придумаю блюдо</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="openFood('month')">
+          <div class="row-icon" style="background:rgba(199,125,255,0.1)">📅</div>
+          <div class="row-body">
+            <div class="row-title">План на месяц</div>
+            <div class="row-sub">Персональная программа</div>
+          </div>
+          <span class="row-badge pill pill-purple">Pro</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Немного о себе</div>
+      <div class="card">
+        <div class="row" onclick="openFood('psych_course')">
+          <div class="row-icon" style="background:rgba(82,224,160,0.1)">🧠</div>
+          <div class="row-body">
+            <div class="row-title">Разговор о еде каждый день</div>
+            <div class="row-sub" id="course-progress-text">Идём вместе · День 1</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="openFood('habits')">
+          <div class="row-icon" style="background:rgba(255,107,107,0.1)">🔍</div>
+          <div class="row-body">
+            <div class="row-title">Мои привычки</div>
+            <div class="row-sub">Почему ты ешь именно так</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="openFood('support')">
+          <div class="row-icon" style="background:rgba(255,209,102,0.1)">💛</div>
+          <div class="row-body">
+            <div class="row-title">Когда не по себе</div>
+            <div class="row-sub">Поддержка в трудный день</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Режим питания</div>
+      <div class="card" id="mode-list">
+        <!-- генерируется JS -->
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+  </div>
+
+  <!-- ── 🎬 РАЗВЛЕЧЕНИЯ ── -->
+  <div class="tab-page" id="tab-fun">
+    <div class="page-header">
+      <div class="page-title">🎬 Развлечения</div>
+      <div class="page-sub">Кино · Музыка · Книги · Аудио</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">По настроению</div>
+      <div class="card">
+        <div class="row" onclick="openFun('movie')">
+          <div class="row-icon" style="background:rgba(255,107,107,0.12)">🎬</div>
+          <div class="row-body">
+            <div class="row-title">Кино на вечер</div>
+            <div class="row-sub">Подберу под настроение · Трейлер · HTML</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="openFun('music')">
+          <div class="row-icon" style="background:rgba(91,143,255,0.1)">🎵</div>
+          <div class="row-body">
+            <div class="row-title">Музыка</div>
+            <div class="row-sub">Терапевтические плейлисты · YouTube</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="openFun('books')">
+          <div class="row-icon" style="background:rgba(199,125,255,0.1)">📚</div>
+          <div class="row-body">
+            <div class="row-title">Книги</div>
+            <div class="row-sub">Истории людей похожих на тебя</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="openFun('audio')">
+          <div class="row-icon" style="background:rgba(82,224,160,0.1)">🎧</div>
+          <div class="row-body">
+            <div class="row-title">Аудиоистории</div>
+            <div class="row-sub">Мотивация · Поддержка · ElevenLabs TTS</div>
+          </div>
+          <span class="row-badge pill pill-green">Новое</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Фильм на вечер</div>
+      <div class="insight-card">
+        <span class="insight-icon">🎭</span>
+        <div class="insight-label">Кино под настроение</div>
+        <div class="insight-text">Иногда нужен просто хороший фильм — не чтобы убить время, а чтобы что-то почувствовать. Скажи какое настроение — найдём подходящее.</div>
+        <div class="insight-action" onclick="openFun('movie')">Подобрать фильм →</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">История дня</div>
+      <div class="story-card">
+        <div class="story-tag">✦ Мотивация</div>
+        <div class="story-text" id="story-text-2">Загрузка...</div>
+        <div class="story-footer">
+          <div class="story-author">— AEatolog</div>
+          <div class="story-audio-btn" onclick="playStory()">🎧 Слушать</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+  </div>
+
+  <!-- ── 💰 ФИНАНСЫ ── -->
+  <div class="tab-page" id="tab-finance">
+    <div class="page-header">
+      <div class="page-title">💰 Финансы</div>
+      <div class="page-sub">Бюджет · Покупки · Экономия</div>
+    </div>
+
+    <!-- Бюджет -->
+    <div class="section">
+      <div class="section-title">Бюджет на неделю</div>
+    </div>
+    <div class="budget-card anim">
+      <div class="budget-label">Осталось</div>
+      <div class="budget-amount" id="budget-left">3 200 ₽</div>
+      <div class="budget-sub" id="budget-sub">потрачено 1 800 ₽ из 5 000 ₽</div>
+      <div class="budget-bar"><div class="budget-fill" id="budget-fill" style="width:36%"></div></div>
+      <div class="budget-stats">
+        <span>0 ₽</span>
+        <span id="budget-pct">36% использовано</span>
+        <span id="budget-total">5 000 ₽</span>
+      </div>
+    </div>
+
+    <!-- Список покупок -->
+    <div class="section">
+      <div class="section-title">Список покупок</div>
+      <div class="card">
+        <div id="shop-list">
+          <!-- генерируется JS -->
+        </div>
+        <div class="add-shop-row">
+          <input class="add-inp" id="shop-inp" placeholder="Добавить продукт..." maxlength="60"
+            onkeydown="if(event.key==='Enter'){addShopItem();this.blur()}">
+          <button class="add-btn" onclick="addShopItem()">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Экономия -->
+    <div class="section">
+      <div class="section-title">Умная экономия</div>
+      <div class="card">
+        <div class="row" onclick="toast('Анализирую ваши покупки...')">
+          <div class="row-icon" style="background:rgba(82,224,160,0.1)">💡</div>
+          <div class="row-body">
+            <div class="row-title">Дешёвые замены</div>
+            <div class="row-sub">Экономь до 30% без потери качества</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="toast('Сезонные продукты загружаются...')">
+          <div class="row-icon" style="background:rgba(255,209,102,0.1)">🌱</div>
+          <div class="row-body">
+            <div class="row-title">Сезонные продукты</div>
+            <div class="row-sub">Что сейчас дешевле и вкуснее</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="toast('Скоро: интеграция с магазинами')">
+          <div class="row-icon" style="background:rgba(91,143,255,0.1)">🛒</div>
+          <div class="row-body">
+            <div class="row-title">Акции в магазинах</div>
+            <div class="row-sub">Скоро: Яндекс · Сбер · Магнит</div>
+          </div>
+          <span class="row-badge pill pill-blue">Скоро</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+  </div>
+
+  <!-- ── 👤 ПРОФИЛЬ ── -->
+  <div class="tab-page" id="tab-profile">
+
+    <div class="avatar-wrap">
+      <div class="avatar">🌿</div>
+      <div class="profile-name" id="prof-name">Загрузка...</div>
+      <div class="profile-bio" id="prof-bio">Твой путь к осознанной жизни</div>
+    </div>
+
+    <!-- Твой стиль -->
+    <div class="style-card anim">
+      <div class="style-label">Как ты</div>
+      <div class="style-title" id="style-type">🔍 Определяется...</div>
+      <div class="style-desc" id="style-desc">Расскажи мне о себе — и я буду лучше тебя понимать.</div>
+    </div>
+
+    <!-- Настройки -->
+    <div class="section">
+      <div class="section-title">Настройки</div>
+      <div class="card">
+        <div class="row" onclick="toast('Открываю анкету...')">
+          <div class="row-icon" style="background:rgba(91,143,255,0.1)">📝</div>
+          <div class="row-body">
+            <div class="row-title">Моя анкета</div>
+            <div class="row-sub">Редактировать профиль</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="toast('Уведомления настроены')">
+          <div class="row-icon" style="background:rgba(255,209,102,0.1)">🔔</div>
+          <div class="row-body">
+            <div class="row-title">Уведомления</div>
+            <div class="row-sub">Утро 8:00 · Вечер 20:00</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="toast('Менторство — скоро!')">
+          <div class="row-icon" style="background:rgba(199,125,255,0.1)">🧭</div>
+          <div class="row-body">
+            <div class="row-title">Менторство</div>
+            <div class="row-sub">Персональное сопровождение</div>
+          </div>
+          <span class="row-badge pill pill-purple">Скоро</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Прогресс курса -->
+    <div class="section">
+      <div class="section-title">Мой прогресс</div>
+      <div class="card">
+        <div class="row" onclick="switchTab('food')">
+          <div class="row-icon" style="background:rgba(82,224,160,0.1)">🧠</div>
+          <div class="row-body">
+            <div class="row-title">Питание и жизнь</div>
+            <div class="row-sub" id="prof-course-prog">Идём вместе · День 1</div>
+          </div>
+          <div class="row-arrow">›</div>
+        </div>
+        <div class="row" onclick="toast('Фитнес-курс — скоро!')">
+          <div class="row-icon" style="background:rgba(255,107,107,0.1)">💪</div>
+          <div class="row-body">
+            <div class="row-title">Фитнес-программа</div>
+            <div class="row-sub">Скоро: персональный тренер</div>
+          </div>
+          <span class="row-badge pill pill-red">Скоро</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+  </div>
+
+</div>
+<!-- / ЭКРАН -->
+
+<!-- ── НИЖНЯЯ НАВИГАЦИЯ ── -->
+<nav class="bottom-nav">
+  <button class="nav-item active" id="nav-today" onclick="switchTab('today')">
+    <span class="nav-icon">🏠</span>
+    <span class="nav-label">Сегодня</span>
+  </button>
+  <button class="nav-item" id="nav-food" onclick="switchTab('food')">
+    <span class="nav-icon">🥗</span>
+    <span class="nav-label">Питание</span>
+  </button>
+  <button class="nav-item" id="nav-fun" onclick="switchTab('fun')">
+    <span class="nav-icon">🎬</span>
+    <span class="nav-label">Отдых</span>
+  </button>
+  <button class="nav-item" id="nav-finance" onclick="switchTab('finance')">
+    <span class="nav-icon">💰</span>
+    <span class="nav-label">Финансы</span>
+  </button>
+  <button class="nav-item" id="nav-profile" onclick="switchTab('profile')">
+    <span class="nav-icon">👤</span>
+    <span class="nav-label">Профиль</span>
+  </button>
+</nav>
+
+<!-- FAB overlay -->
+<div class="fab-overlay" id="fab-overlay" onclick="closeFab()"></div>
+
+<!-- FAB меню -->
+<div class="fab-menu" id="fab-menu">
+  <div class="fab-item" onclick="fabAction('diet')">
+    <span class="fab-item-icon">🥗</span>
+    <span class="fab-item-label">Диета на сегодня</span>
+  </div>
+  <div class="fab-item" onclick="fabAction('movie')">
+    <span class="fab-item-icon">🎬</span>
+    <span class="fab-item-label">Кино по настроению</span>
+  </div>
+  <div class="fab-item" onclick="fabAction('story')">
+    <span class="fab-item-icon">✦</span>
+    <span class="fab-item-label">История дня</span>
+  </div>
+  <div class="fab-item" onclick="fabAction('weight')">
+    <span class="fab-item-icon">⚖️</span>
+    <span class="fab-item-label">Записать вес</span>
+  </div>
+</div>
+
+<!-- FAB кнопка -->
+<div class="fab" id="fab" onclick="toggleFab()">✦</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Telegram WebApp ──
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+// ── State ──
+const KEY = 'ae_state_v2';
+let S = (() => {
+  try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; }
+})();
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {}
+}
+
+function send(data) {
+  if (tg?.sendData) tg.sendData(JSON.stringify(data));
+}
+
+// ── Helpers ──
+function today() { return new Date().toISOString().slice(0, 10); }
+
+function toast(msg, dur = 2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+function setRing(id, pct) {
+  const c = 132;
+  const el = document.getElementById(id);
+  if (el) el.style.strokeDashoffset = c - Math.min(pct, 1) * c;
+}
+
+// ── TAB NAVIGATION ──
+function switchTab(name) {
+  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  const page = document.getElementById('tab-' + name);
+  const btn = document.getElementById('nav-' + name);
+  if (page) { page.classList.add('active'); document.getElementById('view').scrollTop = 0; }
+  if (btn) btn.classList.add('active');
+  closeFab();
+}
+
+// ── FAB ──
+let fabOpen = false;
+function toggleFab() {
+  fabOpen = !fabOpen;
+  document.getElementById('fab-menu').classList.toggle('open', fabOpen);
+  document.getElementById('fab-overlay').classList.toggle('open', fabOpen);
+  document.getElementById('fab').textContent = fabOpen ? '✕' : '✦';
+}
+function closeFab() {
+  fabOpen = false;
+  document.getElementById('fab-menu').classList.remove('open');
+  document.getElementById('fab-overlay').classList.remove('open');
+  document.getElementById('fab').textContent = '✦';
+}
+function fabAction(action) {
+  closeFab();
+  const map = { diet: 'food', movie: 'fun', story: 'today', weight: 'profile' };
+  if (map[action]) switchTab(map[action]);
+  send({ action: 'fab_' + action });
+  toast({ diet:'🥗 Открываю питание', movie:'🎬 Открываю кино', story:'✦ Открываю истории', weight:'⚖️ Открываю профиль' }[action] || '');
+}
+
+// ── MOOD ──
+function setMood(btn) {
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  S.mood = btn.dataset.m;
+  save();
+  send({ action: 'mood', value: S.mood });
+  const msgs = { '5':'Отлично! 😄', '4':'Хорошо 🙂', '3':'Нормально 😐', '2':'Немного грустно 😔', '1':'Трудный день 😤', '0':'Устал 🥱' };
+  toast(msgs[S.mood] || 'Записал');
+}
+
+// ── WATER ──
+function addWater(ml) {
+  if (!S.water_date || S.water_date !== today()) { S.water = 0; S.water_date = today(); }
+  S.water = (S.water || 0) + ml;
+  save();
+  updateWater();
+  send({ action: 'water', ml: S.water });
+  toast('+' + ml + ' мл 💧');
+}
+function updateWater() {
+  const w = S.water || 0, g = 2000;
+  document.getElementById('water-disp').textContent = w + ' / ' + g + ' мл';
+  document.getElementById('water-fill').style.width = Math.min(w / g * 100, 100) + '%';
+  document.getElementById('rv-water').textContent = Math.round(Math.min(w / g, 1) * 100) + '%';
+  setRing('r-water', w / g);
+}
+
+// ── INSIGHTS (советникия питания встроенная) ──
+const INSIGHTS = [
+  { icon:'🌱', day:1, text:'Ты когда-нибудь ел не потому что голоден, а потому что скучно? Это не слабость — это привычка. Сегодня просто заметь это, без осуждения.' },
+  { icon:'🫁', day:2, text:'Сделай три глубоких вдоха перед едой. Это переключает нервную систему из "стресс" в "покой" — и ты съешь на 20% меньше.' },
+  { icon:'🪞', day:3, text:'Как ты говоришь с собой когда срываешься? "Я опять облажался" — это не правда, это просто старая привычка мозга. Попробуй: "Я учусь."' },
+  { icon:'💛', day:4, text:'Еда часто заменяет то чего нам не хватает: тепла, внимания, отдыха. Сегодня спроси себя: что я на самом деле хочу прямо сейчас?' },
+  { icon:'🌊', day:5, text:'Стресс и аппетит связаны напрямую — кортизол буквально заставляет тебя хотеть сладкое. Это биология, не характер.' },
+  { icon:'🌙', day:6, text:'Ночные набеги на холодильник часто случаются не от голода, а от усталости и одиночества. Что если вместо этого — просто стакан воды и 5 минут тишины?' },
+  { icon:'✨', day:7, text:'Ты дошёл до 7-го дня. Это не мелочь — большинство людей сдаются раньше. Ты уже меняешься, даже если ещё не чувствуешь этого.' },
+];
+let insightIdx = S.insight_idx || 0;
+function showInsight() {
+  const ins = INSIGHTS[insightIdx % INSIGHTS.length];
+  document.getElementById('ins-icon').textContent = ins.icon;
+  document.getElementById('ins-day').textContent = ins.day;
+  document.getElementById('ins-text').textContent = ins.text;
+}
+function nextInsight() {
+  insightIdx = (insightIdx + 1) % INSIGHTS.length;
+  S.insight_idx = insightIdx;
+  save();
+  showInsight();
+}
+
+// ── STORIES ──
+const STORIES = [
+  { text: 'Однажды женщина пришла к диетологу и сказала: "Я пробовала всё. Ничего не работает." Он спросил: "А что работало в жизни — когда вы не торопились?" Она задумалась. Потом улыбнулась. Иногда нам нужен не план — нам нужно разрешение не спешить.', author: '— История о терпении' },
+  { text: 'Каждое утро он записывал одно слово в блокнот. Не план, не список — просто слово которое описывало его состояние. Через месяц он увидел привычка: "усталость" повторялось каждую пятницу. Он изменил одно. Всё стало другим.', author: '— История о внимании' },
+  { text: 'Она не могла похудеть три года. Потом перестала взвешиваться и начала спрашивать себя каждый день: "Как я себя чувствую?" Через полгода — минус 12 килограммов. Тело откликается на заботу, не на войну с ним.', author: '— История о принятии' },
+];
+let storyIdx = S.story_idx || 0;
+function showStory() {
+  const s = STORIES[storyIdx % STORIES.length];
+  ['story-text', 'story-text-2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = s.text;
+  });
+  const a = document.getElementById('story-author');
+  if (a) a.textContent = s.author;
+}
+
+function playStory() {
+  toast('🎧 Аудио-озвучка через ElevenLabs — скоро!', 3000);
+  send({ action: 'play_story', idx: storyIdx });
+}
+
+// ── РЕЖИМЫ ПИТАНИЯ ──
+const MODES = [
+  { emoji:'🌿', name:'Интуитивное', desc:'Мягкий старт', lives:'❤️❤️❤️❤️❤️', level:1 },
+  { emoji:'🥗', name:'Сбалансированное', desc:'Классика', lives:'❤️❤️❤️', level:2 },
+  { emoji:'⚡', name:'Активное', desc:'Для движения', lives:'❤️❤️', level:3 },
+  { emoji:'🏋️', name:'Спортивное', desc:'Высокий белок', lives:'❤️', level:4 },
+  { emoji:'🔥', name:'Максимум', desc:'Экстрим', lives:'❤️', level:5 },
+];
+function renderModes() {
+  const cur = S.diet_level || 2;
+  const el = document.getElementById('mode-list');
+  if (!el) return;
+  el.innerHTML = MODES.map(m => `
+    <div class="row${m.level === cur ? ' active-mode' : ''}" onclick="setMode(${m.level})" style="${m.level === cur ? 'background:rgba(82,224,160,0.06)' : ''}">
+      <div class="row-icon" style="background:rgba(255,255,255,0.05);font-size:1.2rem">${m.emoji}</div>
+      <div class="row-body">
+        <div class="row-title">${m.name}</div>
+        <div class="row-sub">${m.desc} · ${m.lives}</div>
+      </div>
+      ${m.level === cur ? '<span style="color:var(--a3);font-size:0.8rem">✓</span>' : '<div class="row-arrow">›</div>'}
+    </div>`).join('');
+}
+function setMode(level) {
+  S.diet_level = level;
+  save();
+  renderModes();
+  const m = MODES.find(x => x.level === level);
+  document.getElementById('mode-badge').textContent = m.emoji + ' Режим ' + level;
+  send({ action: 'set_mode', level });
+  toast(m.emoji + ' ' + m.name);
+}
+
+// ── SHOPPING LIST ──
+function renderShopList() {
+  if (!S.shop) S.shop = [
+    { text:'Гречка', price:89, done:false },
+    { text:'Куриная грудка', price:280, done:false },
+    { text:'Брокколи', price:120, done:true },
+    { text:'Оливковое масло', price:350, done:false },
+  ];
+  const el = document.getElementById('shop-list');
+  if (!el) return;
+  el.innerHTML = S.shop.map((item, i) => `
+    <div class="shop-item${item.done ? ' bought' : ''}" id="si-${i}">
+      <div class="shop-check" onclick="toggleShop(${i})">${item.done ? '✓' : ''}</div>
+      <div class="shop-name">${item.text}</div>
+      <div class="shop-price">${item.price} ₽</div>
+    </div>`).join('');
+  updateBudget();
+}
+function toggleShop(i) {
+  S.shop[i].done = !S.shop[i].done;
+  save();
+  renderShopList();
+}
+function addShopItem() {
+  const inp = document.getElementById('shop-inp');
+  const text = inp.value.trim();
+  if (!text) return;
+  if (!S.shop) S.shop = [];
+  S.shop.push({ text, price: 0, done: false });
+  save();
+  inp.value = '';
+  renderShopList();
+  toast('Добавлено ✓');
+}
+function updateBudget() {
+  const total = S.budget_total || 5000;
+  const spent = (S.shop || []).filter(i => i.done).reduce((a, b) => a + (b.price || 0), 0);
+  const left = total - spent;
+  const pct = Math.round(spent / total * 100);
+  document.getElementById('budget-left').textContent = left.toLocaleString('ru') + ' ₽';
+  document.getElementById('budget-sub').textContent = 'потрачено ' + spent.toLocaleString('ru') + ' ₽ из ' + total.toLocaleString('ru') + ' ₽';
+  document.getElementById('budget-fill').style.width = Math.min(pct, 100) + '%';
+  document.getElementById('budget-pct').textContent = pct + '% использовано';
+  document.getElementById('budget-total').textContent = total.toLocaleString('ru') + ' ₽';
+}
+
+// ── OPEN HANDLERS ──
+function openFood(action) {
+  const msgs = {
+    diet: '🥗 Запрашиваю диету...', recipes: '🍳 Загружаю рецепты...',
+    fridge: '🧊 Открываю холодильник...', month: '📅 Формирую план на месяц...',
+    psych_course: '🧠 Открываю курс...', patterns: '🔍 Анализирую привычкаы...',
+    emotional: '💛 Открываю раздел...',
+  };
+  toast(msgs[action] || '...');
+  send({ action: 'open_food', sub: action });
+}
+function openFun(action) {
+  const msgs = {
+    movie: '🎬 Открываю кино-сомелье...', music: '🎵 Подбираю музыку...',
+    books: '📚 Подбираю книги...', audio: '🎧 Загружаю аудиоистории...',
+  };
+  toast(msgs[action] || '...');
+  send({ action: 'open_fun', sub: action });
+}
+
+// ── GREETING ──
+function initGreeting() {
+  const h = new Date().getHours();
+  const name = S.name || 'друг';
+  const greet = h < 6 ? 'Тихой ночи' : h < 12 ? 'Доброе утро' : h < 17 ? 'Добрый день' : h < 22 ? 'Добрый вечер' : 'Добрый вечер';
+  document.getElementById('greet-text').textContent = greet + ', ' + name + ' 👋';
+  const days = ['вс','пн','вт','ср','чт','пт','сб'];
+  const months = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  const now = new Date();
+  document.getElementById('greet-date').textContent = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()];
+}
+
+// ── PROFILE ──
+function initProfile() {
+  const name = S.name || 'Пользователь';
+  document.getElementById('prof-name').textContent = name;
+  const psychoTypes = {
+    emotional: ['😔 Эмоциональный едок', 'Используешь еду как способ справиться со стрессом и эмоциями. Это очень распространённый привычка.'],
+    control: ['📊 Контролёр', 'Стремишься всё контролировать, включая питание. Иногда это превращается в навязчивость.'],
+    intuitive: ['🌊 Интуитивный', 'Хорошо чувствуешь сигналы тела. Редкий и ценный навык — развивай его.'],
+    social: ['👥 Социальный', 'Еда для тебя — это про общение и связь с людьми.'],
+  };
+  const pt = S.user_style || 'support';
+  const [title, desc] = psychoTypes[pt] || psychoTypes.emotional;
+  document.getElementById('style-type').textContent = title;
+  document.getElementById('style-desc').textContent = desc;
+}
+
+// ── STREAK ──
+function initStreak() {
+  document.getElementById('streak-num').textContent = S.streak || 0;
+  const level = S.diet_level || 2;
+  const maxLives = [0, 5, 3, 2, 1, 1][level];
+  const curLives = S.lives ?? maxLives;
+  const row = document.getElementById('lives-row');
+  if (row) {
+    row.innerHTML = Array.from({length: maxLives}, (_, i) =>
+      `<span class="life${i < curLives ? ' on' : ''}">❤️</span>`
+    ).join('');
+  }
+}
+
+// ── INIT ──
+function init() {
+  // Tg data
+  if (tg?.initDataUnsafe?.user) {
+    const u = tg.initDataUnsafe.user;
+    if (!S.name && u.first_name) S.name = u.first_name;
+  }
+
+  initGreeting();
+  initProfile();
+  initStreak();
+  showInsight();
+  showStory();
+  renderModes();
+  renderShopList();
+  updateWater();
+
+  // Course progress text
+  const day = (S.course_day || 1);
+  document.getElementById('course-progress-text').textContent = 'День ' + day + ' из 21';
+  document.getElementById('prof-course-prog').textContent = 'День ' + day + ' из 21';
+  document.getElementById('rv-course').textContent = Math.round(day / 21 * 100) + '%';
+
+  // Restore mood
+  if (S.mood !== undefined) {
+    const btn = document.querySelector(`.mood-btn[data-m="${S.mood}"]`);
+    if (btn) btn.classList.add('active');
+  }
+
+  // Rings animation
+  setTimeout(() => {
+    const tasks = S.tasks || [];
+    const done = tasks.filter(t => t.done).length;
+    setRing('r-tasks', tasks.length ? done / tasks.length : 0);
+    document.getElementById('rv-tasks').textContent = tasks.length ? Math.round(done / tasks.length * 100) + '%' : '0%';
+    setRing('r-water', Math.min((S.water || 0) / 2000, 1));
+    setRing('r-course', (S.course_day || 1) / 21);
+    document.getElementById('mode-badge').textContent = (MODES.find(m => m.level === (S.diet_level || 2))?.emoji || '🥗') + ' Режим ' + (S.diet_level || 2);
+  }, 400);
+
+  save();
+}
+
+init();
+</script>
+</body>
+</html>

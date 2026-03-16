@@ -10,8 +10,7 @@ load_dotenv()
 TOKEN    = os.getenv("TELEGRAM_TOKEN")
 BASE_DIR = os.getenv("BASE_DIR", "./data")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
-REDIS_URL  = os.getenv("REDIS_URL", "")
-WEBAPP_URL = os.getenv("WEBAPP_URL", "")  # URL задеплоенного webapp.html на Railway
+REDIS_URL = os.getenv("REDIS_URL", "")
 
 # ── FSM STORAGE ─────────────────────────────────────────────────────────────
 # Если задан REDIS_URL — используем Redis (состояние анкеты выживает рестарт).
@@ -32,3 +31,5 @@ else:
 
 bot       = Bot(token=TOKEN)
 scheduler = AsyncIOScheduler(timezone=timezone.utc)
+
+WEBAPP_URL = os.getenv("WEBAPP_URL", "")
