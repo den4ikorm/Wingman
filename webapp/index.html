@@ -11,84 +11,132 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:var(--bg)!important;color-scheme:dark!important;overflow:hidden}
 body{font-family:'Golos Text',sans-serif;color:var(--text);display:flex;flex-direction:column;height:100dvh;-webkit-font-smoothing:antialiased}
+/* NAV */
 .bnav{display:flex;flex-shrink:0;background:rgba(8,12,18,.97);border-top:1px solid var(--border);padding:6px 0 max(6px,env(safe-area-inset-bottom));z-index:200}
 .bn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;cursor:pointer;transition:all .18s;position:relative}
-.bn-ico{font-size:22px;transition:transform .18s}
-.bn-lbl{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);transition:color .18s}
+.bn-ico{font-size:20px;transition:transform .18s}
+.bn-lbl{font-size:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);transition:color .18s}
 .bn.active .bn-lbl{color:var(--accent)}.bn.active .bn-ico{transform:scale(1.12)}
 .bn::after{content:'';position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:2px;border-radius:2px;background:var(--accent);transition:width .22s}
-.bn.active::after{width:26px}
+.bn.active::after{width:24px}
+/* SCREENS */
 .screens{flex:1;overflow:hidden;position:relative}
 .screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .25s,transform .25s}
 .screen.active{opacity:1;transform:translateY(0);pointer-events:all}
-.stabs{display:flex;gap:6px;padding:12px 14px 8px;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+/* SUBTABS */
+.stabs{display:flex;gap:6px;padding:10px 14px 6px;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .stabs::-webkit-scrollbar{display:none}
-.stab{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;transition:all .18s;flex-shrink:0;background:var(--card);border:1px solid var(--border);color:var(--muted)}
+.stab{padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;cursor:pointer;transition:all .18s;flex-shrink:0;background:var(--card);border:1px solid var(--border);color:var(--muted)}
 .stab.active{background:var(--accent);border-color:var(--accent);color:#000}
+/* SCROLL */
 .scontent{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0 14px 20px}
-.hero{padding:16px 14px 10px;position:relative;overflow:hidden;flex-shrink:0}
+/* HERO */
+.hero{padding:14px 14px 10px;position:relative;overflow:hidden;flex-shrink:0}
 .hero-bg{position:absolute;inset:0;opacity:.1;background:radial-gradient(ellipse 100% 120% at 50% -20%,var(--accent),transparent)}
 .hero-row{display:flex;align-items:flex-end;justify-content:space-between}
-.hero-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-1px;color:#fff;line-height:1}
-.hero-sub{font-size:12px;color:rgba(232,237,245,.5);margin-top:4px}
-.hero-badge{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(255,255,255,.08);color:var(--accent);border:1px solid rgba(255,255,255,.1)}
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;position:relative;overflow:hidden;cursor:pointer;transition:transform .15s}
-.card:active{transform:scale(.985)}
+.hero-title{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;letter-spacing:-1px;color:#fff;line-height:1}
+.hero-sub{font-size:11px;color:rgba(232,237,245,.5);margin-top:3px}
+.badge{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,255,255,.08);color:var(--accent);border:1px solid rgba(255,255,255,.1)}
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;position:relative;overflow:hidden;transition:transform .15s}
+.card.tap{cursor:pointer}.card.tap:active{transform:scale(.985)}
 .al::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);border-radius:3px 0 0 3px}
 .crow{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-.cico{font-size:20px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border-radius:10px;flex-shrink:0}
-.ctit{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#fff}
-.cbod{font-size:12px;color:rgba(232,237,245,.55);line-height:1.6}
-.prow{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px;margin-top:10px}
+.cico{font-size:18px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border-radius:10px;flex-shrink:0}
+.ctit{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#fff}
+.cbod{font-size:11px;color:rgba(232,237,245,.55);line-height:1.6}
+/* PROGRESS */
+.prow{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px;margin-top:10px}
 .pbar{height:3px;background:rgba(255,255,255,.06);border-radius:3px}
 .pfill{height:100%;border-radius:3px;background:var(--accent);transition:width 1s ease}
+/* GRID */
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
-.tile{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;cursor:pointer;transition:transform .15s}
+.tile{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer;transition:transform .15s}
 .tile:active{transform:scale(.96)}
-.tico{font-size:22px;margin-bottom:8px}.tlbl{font-size:12px;font-weight:600;color:var(--text)}.tsub{font-size:10px;color:var(--muted);margin-top:2px}
-.btn{width:100%;padding:13px;border-radius:14px;border:none;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.3px;cursor:pointer;transition:all .18s;background:var(--accent);color:#000;margin-bottom:8px}
+.tico{font-size:20px;margin-bottom:6px}.tlbl{font-size:12px;font-weight:600;color:var(--text)}.tsub{font-size:10px;color:var(--muted);margin-top:2px}
+/* BUTTONS */
+.btn{width:100%;padding:12px;border-radius:14px;border:none;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .18s;background:var(--accent);color:#000;margin-bottom:8px;display:block}
 .btn:active{transform:scale(.97);opacity:.9}
 .bg{background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--border)}
-.ci{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;transition:opacity .2s}
+/* CHECKLIST */
+.ci{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer}
 .ci.done{opacity:.45}
-.cb{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s;font-size:12px}
+.cb{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s;font-size:11px}
 .ci.done .cb{background:var(--accent);border-color:var(--accent);color:#000}
-.ct{flex:1;font-size:13px;color:var(--text);transition:all .2s}.ci.done .ct{text-decoration:line-through;color:var(--muted)}
+.ct{flex:1;font-size:13px}.ci.done .ct{text-decoration:line-through;color:var(--muted)}
 .cc{font-size:10px;color:var(--muted);margin-top:1px}
-.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.tag{padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(255,255,255,.05);color:var(--accent);border:1px solid rgba(255,255,255,.08)}
-.wli{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+/* TAGS */
+.tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.tag{padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(255,255,255,.05);color:var(--accent);border:1px solid rgba(255,255,255,.08);cursor:pointer}
+a.tag{text-decoration:none}
+/* WATCHLIST */
+.wli{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
 .wli:last-child{border-bottom:none}
-.wln{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:rgba(255,255,255,.08);min-width:28px}
-.wlb{flex:1}.wlt{font-size:13px;font-weight:600;color:var(--text)}.wls{font-size:11px;color:var(--muted);margin-top:2px}
-.wld{color:var(--muted);font-size:18px;padding:4px 8px;cursor:pointer}
+.wln{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:rgba(255,255,255,.08);min-width:24px}
+.wlb{flex:1}.wlt{font-size:13px;font-weight:600;color:var(--text)}.wls{font-size:10px;color:var(--muted);margin-top:1px}
+.wld{color:var(--muted);font-size:16px;padding:4px 8px;cursor:pointer}
+/* FINANCE */
 .fsum{display:flex;gap:8px;margin-bottom:10px}
 .ftile{flex:1;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px;text-align:center}
-.famt{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:2px}
-.flbl{font-size:10px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.famt{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin-bottom:2px}
+.flbl{font-size:9px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
 .inc{color:#2ed573}.exp{color:#ff4757}
-.sec{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:14px 0 8px;padding-left:2px}
-.div{height:1px;background:var(--border);margin:8px 0 14px}
-.empty{text-align:center;padding:40px 20px;color:var(--muted)}
-.empty-ico{font-size:40px;margin-bottom:12px;opacity:.4}
-.empty-txt{font-size:13px}
-.quote{background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:16px 16px 14px;margin-bottom:10px;position:relative}
-.quote::before{content:'"';position:absolute;top:-6px;left:12px;font-size:44px;font-family:'Syne',sans-serif;color:var(--accent);opacity:.25;line-height:1}
-.qtxt{font-size:13px;font-style:italic;color:rgba(232,237,245,.8);line-height:1.7;padding-top:8px}
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(16px);background:rgba(20,28,46,.97);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);color:#fff;padding:10px 20px;border-radius:30px;font-size:12px;font-weight:600;opacity:0;transition:all .22s;pointer-events:none;white-space:nowrap;z-index:999}
+/* CHAT */
+.chat-wrap{display:flex;flex-direction:column;height:100%}
+.chat-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.msg{max-width:85%;padding:10px 14px;border-radius:16px;font-size:13px;line-height:1.55}
+.msg-bot{background:var(--card);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:4px}
+.msg-user{background:var(--accent);color:#000;align-self:flex-end;border-bottom-right-radius:4px;font-weight:600}
+.msg-time{font-size:9px;opacity:.5;margin-top:4px}
+.chat-input{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg)}
+.chat-input input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:10px 16px;color:var(--text);font-size:13px;outline:none;font-family:'Golos Text',sans-serif}
+.chat-input input::placeholder{color:var(--muted)}
+.chat-send{width:36px;height:36px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:transform .15s}
+.chat-send:active{transform:scale(.9)}
+.chat-chips{display:flex;gap:6px;padding:6px 14px 0;flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+.chat-chips::-webkit-scrollbar{display:none}
+.chip{padding:5px 12px;background:var(--card);border:1px solid var(--border);border-radius:14px;font-size:11px;font-weight:600;color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.chip:active{opacity:.7}
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:flex-end}
+.modal-bg.open{display:flex}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-height:85vh;display:flex;flex-direction:column;padding-bottom:max(20px,env(safe-area-inset-bottom))}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid var(--border)}
+.modal-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff}
+.modal-close{font-size:20px;color:var(--muted);cursor:pointer;padding:4px}
+.modal-body{overflow-y:auto;padding:16px 20px;-webkit-overflow-scrolling:touch}
+/* RECIPE STEPS */
+.step-block{margin-bottom:16px}
+.step-n{font-family:'Syne',sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:6px}
+.step-txt{font-size:13px;color:var(--text);line-height:1.7}
+.ing-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.ing-row:last-child{border-bottom:none}
+.ing-name{flex:1;font-size:13px}
+.ing-amt{font-size:12px;color:var(--accent);font-weight:600}
+/* MISC */
+.sec{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:12px 0 8px;padding-left:2px}
+.div{height:1px;background:var(--border);margin:8px 0 12px}
+.empty{text-align:center;padding:32px 20px;color:var(--muted)}
+.empty-ico{font-size:36px;margin-bottom:10px;opacity:.4}
+.empty-txt{font-size:12px}
+.quote{background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:14px 14px 12px;margin-bottom:10px;position:relative}
+.quote::before{content:'"';position:absolute;top:-6px;left:12px;font-size:40px;font-family:'Syne',sans-serif;color:var(--accent);opacity:.2;line-height:1}
+.qtxt{font-size:12px;font-style:italic;color:rgba(232,237,245,.8);line-height:1.7;padding-top:6px}
+/* TOAST */
+.toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%) translateY(16px);background:rgba(20,28,46,.97);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);color:#fff;padding:9px 18px;border-radius:30px;font-size:12px;font-weight:600;opacity:0;transition:all .22s;pointer-events:none;white-space:nowrap;z-index:999}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
-<div class="screens" id="screens">
+<div class="screens">
 
-<!-- ДИЕТА -->
+<!-- ═══ ДИЕТА ═══ -->
 <div class="screen active" id="s-diet">
   <div class="hero" style="--accent:#52e0a0">
     <div class="hero-bg"></div>
     <div class="hero-row">
       <div><div class="hero-title" style="color:#52e0a0">🥗 Диета</div><div class="hero-sub">Питание под цель</div></div>
-      <div class="hero-badge" style="color:#52e0a0;border-color:rgba(82,224,160,.2)">1 600 ккал</div>
+      <div class="badge" style="color:#52e0a0;border-color:rgba(82,224,160,.2)">1 600 ккал</div>
     </div>
   </div>
   <div class="stabs" id="diet-tabs">
@@ -96,97 +144,103 @@ body{font-family:'Golos Text',sans-serif;color:var(--text);display:flex;flex-dir
     <div class="stab" onclick="dtab('week',this)">На неделю</div>
     <div class="stab" onclick="dtab('recipes',this)">Рецепты</div>
     <div class="stab" onclick="dtab('shop',this)">Покупки</div>
+    <div class="stab" onclick="dtab('tasks',this)">Задачи</div>
   </div>
-  <div class="scontent" id="diet-content" style="--accent:#52e0a0">
+  <div class="scontent" style="--accent:#52e0a0">
+    <!-- ДЕНЬ -->
     <div id="dt-day">
-      <div class="sec">Сегодня</div>
+      <div class="sec">Сегодня — прогресс</div>
       <div class="card al">
-        <div class="crow"><div class="cico">🌅</div><div><div class="ctit">Завтрак · 07:30</div><div class="cbod">Овсянка + 2 яйца варёных + чай</div></div></div>
-        <div class="prow"><span>КБЖУ</span><span>420 ккал · Б:24 · Ж:14 · У:48</span></div>
-        <div class="pbar"><div class="pfill" style="width:100%;background:#52e0a0"></div></div>
-        <div class="tags">
-          <span class="tag" style="color:#52e0a0">✓ Съедено</span>
-          <a class="tag" href="https://www.youtube.com/results?search_query=овсянка+рецепт+пп" target="_blank" style="color:#ffd166;text-decoration:none">▶ YouTube</a>
-        </div>
+        <div class="prow"><span>🔥 Калории</span><span>1 280 / 1 600 ккал</span></div>
+        <div class="pbar"><div class="pfill" style="width:80%;background:#52e0a0"></div></div>
+        <div class="prow"><span>💪 Белок</span><span>106 / 140г</span></div>
+        <div class="pbar"><div class="pfill" style="width:75%;background:#5b8fff"></div></div>
+        <div class="prow"><span>💧 Вода</span><span>1.4 / 2.5 л</span></div>
+        <div class="pbar"><div class="pfill" style="width:56%;background:#70d6ff"></div></div>
       </div>
-      <div class="card al">
-        <div class="crow"><div class="cico">☀️</div><div><div class="ctit">Обед · 13:00</div><div class="cbod">Куриное филе 200г + гречка + салат</div></div></div>
-        <div class="prow"><span>КБЖУ</span><span>540 ккал · Б:46 · Ж:8 · У:62</span></div>
-        <div class="pbar"><div class="pfill" style="width:60%;background:#52e0a0"></div></div>
-        <div class="tags">
-          <span class="tag" style="color:#ffa502">⏳ Впереди</span>
-          <a class="tag" href="https://www.youtube.com/results?search_query=куриное+филе+рецепт+пп" target="_blank" style="color:#ffd166;text-decoration:none">▶ YouTube</a>
-        </div>
+      <div class="sec">Приёмы пищи</div>
+      <div class="card al tap" onclick="openMeal('breakfast')">
+        <div class="crow"><div class="cico">🌅</div><div><div class="ctit">Завтрак · 07:30</div><div class="cbod">Овсянка + 2 яйца + чай · 420 ккал</div></div></div>
+        <div class="tags"><span class="tag" style="color:#52e0a0">✓ Съедено</span><a class="tag" href="https://www.youtube.com/results?search_query=овсянка+рецепт+пп" target="_blank" style="color:#ffd166">▶ YouTube</a><span class="tag" onclick="openRecipeModal('breakfast')">📖 Рецепт</span></div>
+      </div>
+      <div class="card al tap" onclick="openMeal('lunch')">
+        <div class="crow"><div class="cico">☀️</div><div><div class="ctit">Обед · 13:00</div><div class="cbod">Курица 200г + гречка + салат · 540 ккал</div></div></div>
+        <div class="tags"><span class="tag" style="color:#ffa502">⏳ Впереди</span><a class="tag" href="https://www.youtube.com/results?search_query=куриное+филе+пп+рецепт" target="_blank" style="color:#ffd166">▶ YouTube</a><span class="tag" onclick="openRecipeModal('lunch')">📖 Рецепт</span></div>
         <div class="sec">Альтернативы</div>
-        <div class="tags">
-          <span class="tag" onclick="toast('🦃 Заменено на индейку')">🦃 Индейка</span>
-          <span class="tag" onclick="toast('🍚 Заменено на рис')">🍚 Рис</span>
-          <span class="tag" onclick="toast('🐟 Заменено на тунец')">🐟 Тунец</span>
-        </div>
+        <div class="tags"><span class="tag" onclick="toast('🦃 Заменено на индейку')">🦃 Индейка</span><span class="tag" onclick="toast('🐟 Заменено на тунец')">🐟 Тунец</span><span class="tag" onclick="toast('🍚 Заменено на рис')">🍚 Рис</span></div>
       </div>
-      <div class="card al">
-        <div class="crow"><div class="cico">🌙</div><div><div class="ctit">Ужин · 19:00</div><div class="cbod">Творог 5% 200г + ягоды + орехи</div></div></div>
-        <div class="prow"><span>КБЖУ</span><span>320 ккал · Б:36 · Ж:10 · У:22</span></div>
-        <div class="pbar"><div class="pfill" style="width:0%;background:#52e0a0"></div></div>
-        <div class="tags">
-          <a class="tag" href="https://www.youtube.com/results?search_query=творог+с+ягодами+рецепт" target="_blank" style="color:#ffd166;text-decoration:none">▶ YouTube</a>
-        </div>
-      </div>
-      <div class="div"></div>
-      <div class="g2">
-        <div class="tile"><div class="tico">🔥</div><div class="tlbl">1 280 / 1 600</div><div class="tsub">ккал съедено</div></div>
-        <div class="tile"><div class="tico">💪</div><div class="tlbl">106 / 140г</div><div class="tsub">белок</div></div>
+      <div class="card al tap">
+        <div class="crow"><div class="cico">🌙</div><div><div class="ctit">Ужин · 19:00</div><div class="cbod">Творог 5% 200г + ягоды · 320 ккал</div></div></div>
+        <div class="tags"><span class="tag" style="color:#4a5568">— Не время</span><a class="tag" href="https://www.youtube.com/results?search_query=творог+ягоды+рецепт" target="_blank" style="color:#ffd166">▶ YouTube</a><span class="tag" onclick="openRecipeModal('dinner')">📖 Рецепт</span></div>
       </div>
       <button class="btn" style="background:#52e0a0" onclick="tgAction('plan')">🔄 Обновить план</button>
     </div>
+    <!-- НЕДЕЛЯ -->
     <div id="dt-week" style="display:none">
       <div class="sec">Меню на неделю</div>
       <div id="week-meals"></div>
-      <button class="btn" style="background:#52e0a0" onclick="tgAction('plan')">✨ Сгенерировать новое меню</button>
+      <button class="btn" style="background:#52e0a0" onclick="tgAction('plan')">✨ Новое меню</button>
     </div>
+    <!-- РЕЦЕПТЫ -->
     <div id="dt-recipes" style="display:none">
       <div class="sec">Рецепты под план</div>
       <div id="recipes-list"></div>
       <button class="btn" style="background:#52e0a0" onclick="tgAction('recipes')">🍳 Новые рецепты</button>
     </div>
+    <!-- ПОКУПКИ -->
     <div id="dt-shop" style="display:none">
       <div class="sec">Список покупок</div>
       <div id="shop-list"></div>
       <div class="div"></div>
-      <button class="btn" style="background:#52e0a0" onclick="tgAction('shopping')">🔄 Обновить список</button>
+      <button class="btn" style="background:#52e0a0" onclick="tgAction('shopping')">🔄 Обновить из плана</button>
       <button class="btn bg" onclick="clearChecked()">🗑 Убрать отмеченные</button>
+    </div>
+    <!-- ЗАДАЧИ -->
+    <div id="dt-tasks" style="display:none">
+      <div class="sec">Задачи на сегодня</div>
+      <div id="tasks-list"></div>
+      <div class="div"></div>
+      <button class="btn" style="background:#52e0a0" onclick="addTask()">➕ Добавить задачу</button>
+      <button class="btn bg" onclick="clearDoneTasks()">🗑 Убрать выполненные</button>
     </div>
   </div>
 </div>
 
-<!-- КИНО -->
+<!-- ═══ КИНО ═══ -->
 <div class="screen" id="s-movie">
   <div class="hero" style="--accent:#c77dff">
     <div class="hero-bg"></div>
     <div class="hero-row">
       <div><div class="hero-title" style="color:#c77dff">🎬 Кино</div><div class="hero-sub">Фильмы и сериалы</div></div>
-      <div class="hero-badge" style="color:#c77dff;border-color:rgba(199,125,255,.2)" id="wl-count">0 в списке</div>
+      <div class="badge" style="color:#c77dff;border-color:rgba(199,125,255,.2)" id="wl-count">0 в списке</div>
     </div>
   </div>
   <div class="stabs">
-    <div class="stab active" onclick="mtab('recs','mt-recs','mt-watchlist',this)">Рекомендации</div>
-    <div class="stab" onclick="mtab('wl','mt-watchlist','mt-recs',this)">Смотреть позже</div>
+    <div class="stab active" onclick="mtab2('mt-recs','mt-watchlist',this)">Рекомендации</div>
+    <div class="stab" onclick="mtab2('mt-watchlist','mt-recs',this)">Смотреть позже</div>
   </div>
   <div class="scontent" style="--accent:#c77dff">
-    <div id="mt-recs"><div class="sec">Подобрано для тебя</div><div id="movie-recs"></div><button class="btn" style="background:#c77dff;color:#000" onclick="tgAction('movie')">🎬 Новые рекомендации</button></div>
-    <div id="mt-watchlist" style="display:none"><div class="sec">Список для просмотра</div><div id="movie-wl"></div></div>
+    <div id="mt-recs">
+      <div class="sec">Подобрано для тебя</div>
+      <div id="movie-recs"></div>
+      <button class="btn" style="background:#c77dff;color:#000" onclick="tgAction('movie')">🎬 Новые рекомендации</button>
+    </div>
+    <div id="mt-watchlist" style="display:none">
+      <div class="sec">Список для просмотра</div>
+      <div id="movie-wl"></div>
+    </div>
   </div>
 </div>
 
-<!-- МУЗЫКА -->
+<!-- ═══ МУЗЫКА ═══ -->
 <div class="screen" id="s-music">
   <div class="hero" style="--accent:#ffd166">
     <div class="hero-bg"></div>
     <div class="hero-row"><div><div class="hero-title" style="color:#ffd166">🎵 Музыка</div><div class="hero-sub">Треки под настроение</div></div></div>
   </div>
   <div class="stabs">
-    <div class="stab active" onclick="mtab('recs','mut-recs','mut-saved',this)">Рекомендации</div>
-    <div class="stab" onclick="mtab('sv','mut-saved','mut-recs',this)">Сохранённые</div>
+    <div class="stab active" onclick="mtab2('mut-recs','mut-saved',this)">Рекомендации</div>
+    <div class="stab" onclick="mtab2('mut-saved','mut-recs',this)">Сохранённые</div>
   </div>
   <div class="scontent" style="--accent:#ffd166">
     <div id="mut-recs">
@@ -197,36 +251,46 @@ body{font-family:'Golos Text',sans-serif;color:var(--text);display:flex;flex-dir
         <div class="tile" onclick="tgAction('music')"><div class="tico">⚡</div><div class="tlbl">Энергия</div></div>
         <div class="tile" onclick="tgAction('music')"><div class="tico">😌</div><div class="tlbl">Расслабление</div></div>
         <div class="tile" onclick="tgAction('music')"><div class="tico">🎯</div><div class="tlbl">Фокус</div></div>
-        <div class="tile" onclick="tgAction('music')"><div class="tico">💭</div><div class="tlbl">Задумчивое</div></div>
+        <div class="tile" onclick="tgAction('music')"><div class="tico">🌙</div><div class="tlbl">Ночное</div></div>
       </div>
     </div>
-    <div id="mut-saved" style="display:none"><div class="sec">Сохранённые треки</div><div id="music-saved"></div></div>
+    <div id="mut-saved" style="display:none">
+      <div class="sec">Сохранённые треки</div>
+      <div id="music-saved"></div>
+    </div>
   </div>
 </div>
 
-<!-- КНИГИ -->
+<!-- ═══ КНИГИ ═══ -->
 <div class="screen" id="s-books">
   <div class="hero" style="--accent:#ff6b9d">
     <div class="hero-bg"></div>
     <div class="hero-row"><div><div class="hero-title" style="color:#ff6b9d">📚 Книги</div><div class="hero-sub">Читать и развиваться</div></div></div>
   </div>
   <div class="stabs">
-    <div class="stab active" onclick="mtab('recs','bt-recs','bt-readlist',this)">Рекомендации</div>
-    <div class="stab" onclick="mtab('rl','bt-readlist','bt-recs',this)">Читать позже</div>
+    <div class="stab active" onclick="mtab2('bt-recs','bt-readlist',this)">Рекомендации</div>
+    <div class="stab" onclick="mtab2('bt-readlist','bt-recs',this)">Читать позже</div>
   </div>
   <div class="scontent" style="--accent:#ff6b9d">
-    <div id="bt-recs"><div class="sec">Подобрано для тебя</div><div id="books-recs"></div><button class="btn" style="background:#ff6b9d;color:#000" onclick="tgAction('books')">📚 Новые рекомендации</button></div>
-    <div id="bt-readlist" style="display:none"><div class="sec">Список для чтения</div><div id="books-rl"></div></div>
+    <div id="bt-recs">
+      <div class="sec">Подобрано для тебя</div>
+      <div id="books-recs"></div>
+      <button class="btn" style="background:#ff6b9d;color:#000" onclick="tgAction('books')">📚 Новые рекомендации</button>
+    </div>
+    <div id="bt-readlist" style="display:none">
+      <div class="sec">Список для чтения</div>
+      <div id="books-rl"></div>
+    </div>
   </div>
 </div>
 
-<!-- ФИНАНСЫ -->
+<!-- ═══ ФИНАНСЫ ═══ -->
 <div class="screen" id="s-finance">
   <div class="hero" style="--accent:#ffa502">
     <div class="hero-bg"></div>
     <div class="hero-row">
       <div><div class="hero-title" style="color:#ffa502">💰 Финансы</div><div class="hero-sub">Бюджет и цели</div></div>
-      <div class="hero-badge" id="fin-balance" style="color:#2ed573;border-color:rgba(46,213,115,.2)">+0 ₽</div>
+      <div class="badge" id="fin-bal-badge" style="color:#2ed573;border-color:rgba(46,213,115,.2)">+0 ₽</div>
     </div>
   </div>
   <div class="stabs" id="fin-stabs">
@@ -254,31 +318,72 @@ body{font-family:'Golos Text',sans-serif;color:var(--text);display:flex;flex-dir
       <div class="sec">Добавить трату</div>
       <div class="g2">
         <div class="tile" onclick="addExp('🛒 Продукты')"><div class="tico">🛒</div><div class="tlbl">Продукты</div></div>
-        <div class="tile" onclick="addExp('🚗 Транспорт')"><div class="tico">🚗</div><div class="tlbl">Транспорт</div></div>
-        <div class="tile" onclick="addExp('☕ Кафе')"><div class="tico">☕</div><div class="tlbl">Кафе</div></div>
+        <div class="tile" onclick="addExp('🚗 Транспорт/бензин')"><div class="tico">🚗</div><div class="tlbl">Транспорт</div></div>
+        <div class="tile" onclick="addExp('☕ Кафе/рестораны')"><div class="tico">☕</div><div class="tlbl">Кафе</div></div>
         <div class="tile" onclick="addExp('🎬 Развлечения')"><div class="tico">🎬</div><div class="tlbl">Развлечения</div></div>
         <div class="tile" onclick="addExp('💊 Здоровье')"><div class="tico">💊</div><div class="tlbl">Здоровье</div></div>
         <div class="tile" onclick="addExp('📦 Прочее')"><div class="tico">📦</div><div class="tlbl">Прочее</div></div>
       </div>
-      <div class="sec">История</div><div id="fin-hist"></div>
+      <div class="sec">История</div>
+      <div id="fin-hist"></div>
     </div>
     <div id="ft-receipt" style="display:none">
-      <div class="quote"><div class="qtxt">Сфотографируй чек — распознаю позиции, сохраню цены и обновлю список покупок автоматически.</div></div>
+      <div class="quote"><div class="qtxt">Сфотографируй чек — распознаю позиции через Gemini Vision, сохраню цены в базу и вычеркну купленное из списка.</div></div>
       <button class="btn" style="background:#ffa502;color:#000" onclick="tgAction('finance')">📸 Сфотографировать чек</button>
-      <div class="sec">Сравнение цен</div>
+      <div class="sec">Сравнение цен по магазинам</div>
       <div class="empty"><div class="empty-ico">🏪</div><div class="empty-txt">Сфотографируй 3+ чека чтобы видеть где дешевле</div></div>
     </div>
   </div>
 </div>
+
+<!-- ═══ ЧАТ ═══ -->
+<div class="screen" id="s-chat">
+  <div class="hero" style="--accent:#5b8fff">
+    <div class="hero-bg"></div>
+    <div class="hero-row"><div><div class="hero-title" style="color:#5b8fff">💬 Чат</div><div class="hero-sub">Спроси что угодно</div></div></div>
+  </div>
+  <div class="chat-wrap">
+    <div class="chat-chips" id="chat-chips">
+      <div class="chip" onclick="sendChip('Посоветуй фильм на вечер')">🎬 Посоветуй фильм</div>
+      <div class="chip" onclick="sendChip('Дай рецепт быстрого завтрака')">🍳 Быстрый завтрак</div>
+      <div class="chip" onclick="sendChip('Какую музыку включить для работы?')">🎵 Музыка для работы</div>
+      <div class="chip" onclick="sendChip('Посоветуй книгу про продуктивность')">📚 Книга про продуктивность</div>
+      <div class="chip" onclick="sendChip('Как сэкономить на продуктах?')">💰 Советы по экономии</div>
+      <div class="chip" onclick="sendChip('Составь план тренировки на сегодня')">🏋️ План тренировки</div>
+    </div>
+    <div class="chat-msgs" id="chat-msgs">
+      <div class="msg msg-bot">Привет! Спроси меня что угодно — посоветую фильм, дам рецепт, помогу с планом. Или используй быстрые кнопки выше 👆<div class="msg-time">сейчас</div></div>
+    </div>
+    <div class="chat-input">
+      <input id="chat-in" placeholder="Напиши что-нибудь..." onkeydown="if(event.key==='Enter')sendMsg()">
+      <button class="chat-send" onclick="sendMsg()">➤</button>
+    </div>
+  </div>
 </div>
 
+</div><!-- /screens -->
+
+<!-- ═══ NAV ═══ -->
 <nav class="bnav">
   <div class="bn active" data-s="diet" onclick="showScreen('diet')"><div class="bn-ico">🥗</div><div class="bn-lbl">Диета</div></div>
   <div class="bn" data-s="movie" onclick="showScreen('movie')"><div class="bn-ico">🎬</div><div class="bn-lbl">Кино</div></div>
   <div class="bn" data-s="music" onclick="showScreen('music')"><div class="bn-ico">🎵</div><div class="bn-lbl">Музыка</div></div>
   <div class="bn" data-s="books" onclick="showScreen('books')"><div class="bn-ico">📚</div><div class="bn-lbl">Книги</div></div>
   <div class="bn" data-s="finance" onclick="showScreen('finance')"><div class="bn-ico">💰</div><div class="bn-lbl">Финансы</div></div>
+  <div class="bn" data-s="chat" onclick="showScreen('chat')"><div class="bn-ico">💬</div><div class="bn-lbl">Чат</div></div>
 </nav>
+
+<!-- ═══ RECIPE MODAL ═══ -->
+<div class="modal-bg" id="recipe-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="modal-title">Рецепт</div>
+      <div class="modal-close" onclick="closeModal()">✕</div>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -289,13 +394,13 @@ if(tg){tg.ready();tg.expand();tg.disableClosingConfirmation();tg.setHeaderColor?
 let _ty=0;
 document.addEventListener('touchstart',e=>{_ty=e.touches[0].clientY},{passive:true});
 document.addEventListener('touchmove',e=>{
-  const el=e.target.closest('.scontent,.stabs');if(!el)return;
+  const el=e.target.closest('.scontent,.stabs,.chat-msgs,.chat-chips,.modal-body');if(!el)return;
   const dy=e.touches[0].clientY-_ty;
   if(dy>0&&el.scrollTop<=0)e.preventDefault();
   if(dy<0&&el.scrollTop+el.clientHeight>=el.scrollHeight-2)e.preventDefault();
 },{passive:false});
 
-// NAV
+// ── NAVIGATION ────────────────────────────────────
 let cur='diet';
 function showScreen(id){
   if(id===cur)return;
@@ -305,97 +410,334 @@ function showScreen(id){
   cur=id;tg?.HapticFeedback?.selectionChanged();
 }
 
-// DIET TABS
+// ── DIET TABS ─────────────────────────────────────
 function dtab(id,el){
-  ['day','week','recipes','shop'].forEach(t=>document.getElementById('dt-'+t).style.display=t===id?'block':'none');
+  ['day','week','recipes','shop','tasks'].forEach(t=>document.getElementById('dt-'+t).style.display=t===id?'block':'none');
   document.querySelectorAll('#diet-tabs .stab').forEach(s=>s.classList.remove('active'));
   el.classList.add('active');
   if(id==='week'&&!document.getElementById('week-meals').children.length)loadWeek();
   if(id==='recipes'&&!document.getElementById('recipes-list').children.length)loadRecipes();
   if(id==='shop')loadShop();
+  if(id==='tasks')loadTasks();
 }
 
-// GENERIC 2-TAB
-function mtab(id,showId,hideId,el){
+// ── GENERIC 2-TAB ─────────────────────────────────
+function mtab2(showId,hideId,el){
   document.getElementById(showId).style.display='block';
   document.getElementById(hideId).style.display='none';
   el.parentElement.querySelectorAll('.stab').forEach(s=>s.classList.remove('active'));
   el.classList.add('active');
 }
 
-// FINANCE TABS
+// ── FINANCE TABS ──────────────────────────────────
 function ftab(id,el){
   ['overview','goals','expenses','receipt'].forEach(t=>document.getElementById('ft-'+t).style.display=t===id?'block':'none');
   document.querySelectorAll('#fin-stabs .stab').forEach(s=>s.classList.remove('active'));
   el.classList.add('active');
 }
 
-// SHOP
-const SHOP=[{id:1,n:'Куриное филе 1кг',c:'Мясо',d:false},{id:2,n:'Гречка 800г',c:'Крупы',d:false},
-  {id:3,n:'Творог 5% 400г',c:'Молочное',d:true},{id:4,n:'Яйца 10шт',c:'Молочное',d:false},
-  {id:5,n:'Овсянка 500г',c:'Крупы',d:false},{id:6,n:'Огурцы 1кг',c:'Овощи',d:true}];
+// ── SHOPPING LIST ─────────────────────────────────
+const SHOP=[
+  {id:1,n:'Куриное филе 1кг',c:'🥩 Мясо',d:false},
+  {id:2,n:'Гречка 800г',c:'🌾 Крупы',d:false},
+  {id:3,n:'Творог 5% 400г',c:'🥛 Молочное',d:true},
+  {id:4,n:'Яйца 10шт',c:'🥚 Молочное',d:false},
+  {id:5,n:'Овсянка 500г',c:'🌾 Крупы',d:false},
+  {id:6,n:'Огурцы 1кг',c:'🥦 Овощи',d:true},
+  {id:7,n:'Брокколи 500г',c:'🥦 Овощи',d:false},
+  {id:8,n:'Кефир 1л',c:'🥛 Молочное',d:false},
+];
 function loadShop(){
   const el=document.getElementById('shop-list');el.innerHTML='';
   SHOP.forEach(item=>{
     const d=document.createElement('div');d.className='ci'+(item.d?' done':'');
-    d.innerHTML=`<div class="cb">${item.d?'✓':''}</div><div><div class="ct">${item.n}</div><div class="cc">${item.c}</div></div>`;
+    d.innerHTML=`<div class="cb">${item.d?'✓':''}</div><div class="wlb"><div class="ct">${item.n}</div><div class="cc">${item.c}</div></div>`;
     d.onclick=()=>{item.d=!item.d;d.className='ci'+(item.d?' done':'');d.querySelector('.cb').textContent=item.d?'✓':'';tg?.HapticFeedback?.impactOccurred('light');toast(item.d?'✓ '+item.n:'↩ '+item.n)};
     el.appendChild(d);
   });
 }
 function clearChecked(){for(let i=SHOP.length-1;i>=0;i--)if(SHOP[i].d)SHOP.splice(i,1);loadShop();toast('Отмеченные удалены')}
 
-// WEEK
-const WEEK=[{d:'Пн',m:'Овсянка / Курица+гречка / Творог'},{d:'Вт',m:'Яичница / Тунец+рис / Кефир'},
-  {d:'Ср',m:'Каша / Индейка+овощи / Творог'},{d:'Чт',m:'Омлет / Говядина+картофель / Кефир'},
-  {d:'Пт',m:'Овсянка / Курица+макароны / Орехи'},{d:'Сб',m:'Блины / Рыба+рис / Творог'},
-  {d:'Вс',m:'Яйца / Курица+гречка / Кефир'}];
-function loadWeek(){const el=document.getElementById('week-meals');
-  WEEK.forEach(w=>{el.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">📅</div><div><div class="ctit">${w.d}</div><div class="cbod">${w.m}</div></div></div></div>`})}
+// ── TASKS ─────────────────────────────────────────
+const TASKS=[
+  {id:1,t:'Выпить 2 стакана воды утром',d:true},
+  {id:2,t:'Приготовить обед по плану',d:false},
+  {id:3,t:'30 минут ходьбы',d:false},
+  {id:4,t:'Записать вес в бот (/weight)',d:false},
+  {id:5,t:'Не есть после 20:00',d:false},
+];
+function loadTasks(){
+  const el=document.getElementById('tasks-list');el.innerHTML='';
+  TASKS.forEach(item=>{
+    const d=document.createElement('div');d.className='ci'+(item.d?' done':'');
+    d.innerHTML=`<div class="cb">${item.d?'✓':''}</div><div class="ct">${item.t}</div>`;
+    d.onclick=()=>{item.d=!item.d;d.className='ci'+(item.d?' done':'');d.querySelector('.cb').textContent=item.d?'✓':'';tg?.HapticFeedback?.impactOccurred('light')};
+    el.appendChild(d);
+  });
+}
+function addTask(){
+  const t=prompt('Новая задача:');if(!t)return;
+  TASKS.push({id:Date.now(),t,d:false});loadTasks();
+  tg?.HapticFeedback?.impactOccurred('medium');
+}
+function clearDoneTasks(){for(let i=TASKS.length-1;i>=0;i--)if(TASKS[i].d)TASKS.splice(i,1);loadTasks();toast('Выполненные удалены')}
 
-// RECIPES
-const RCP=[{n:'Куриное филе в духовке',t:'35 мин',k:'280 ккал',yt:'куриное+филе+в+духовке+пп'},
-  {n:'Гречка с овощами',t:'20 мин',k:'240 ккал',yt:'гречка+с+овощами'},
-  {n:'Омлет с зеленью',t:'10 мин',k:'180 ккал',yt:'омлет+рецепт+пп'},
-  {n:'Творожная запеканка',t:'40 мин',k:'220 ккал',yt:'творожная+запеканка+пп'}];
-function loadRecipes(){const el=document.getElementById('recipes-list');
-  RCP.forEach(r=>{el.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">🍳</div><div><div class="ctit">${r.n}</div><div class="cbod">${r.t} · ${r.k}</div></div></div><div class="tags"><a class="tag" href="https://www.youtube.com/results?search_query=${r.yt}" target="_blank" style="color:#ffd166;text-decoration:none">▶ YouTube рецепт</a></div></div>`})}
+// ── WEEK MEALS ────────────────────────────────────
+const WEEK=[
+  {d:'Пн',m:'Овсянка / Курица+гречка / Творог'},
+  {d:'Вт',m:'Яичница / Тунец+рис / Кефир'},
+  {d:'Ср',m:'Каша / Индейка+овощи / Творог'},
+  {d:'Чт',m:'Омлет / Говядина+картофель / Кефир'},
+  {d:'Пт',m:'Овсянка / Курица+макароны / Орехи'},
+  {d:'Сб',m:'Блины / Рыба+рис / Творог'},
+  {d:'Вс',m:'Яйца / Курица+гречка / Кефир'},
+];
+function loadWeek(){
+  const el=document.getElementById('week-meals');
+  WEEK.forEach(w=>{el.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">📅</div><div><div class="ctit">${w.d}</div><div class="cbod">${w.m}</div></div></div></div>`});
+}
 
-// MEDIA
+// ── RECIPES ───────────────────────────────────────
+const RECIPES=[
+  {id:'r1',n:'Куриное филе в духовке',t:'35 мин',k:'280 ккал',yt:'куриное+филе+в+духовке+пп'},
+  {id:'r2',n:'Гречка с овощами',t:'20 мин',k:'240 ккал',yt:'гречка+с+овощами+рецепт'},
+  {id:'r3',n:'Омлет с зеленью',t:'10 мин',k:'180 ккал',yt:'омлет+с+зеленью+рецепт'},
+  {id:'r4',n:'Творожная запеканка',t:'40 мин',k:'220 ккал',yt:'творожная+запеканка+пп'},
+];
+function loadRecipes(){
+  const el=document.getElementById('recipes-list');
+  RECIPES.forEach(r=>{
+    el.innerHTML+=`<div class="card al tap" onclick="openRecipeById('${r.id}')">
+      <div class="crow"><div class="cico">🍳</div><div><div class="ctit">${r.n}</div><div class="cbod">${r.t} · ${r.k}</div></div></div>
+      <div class="tags">
+        <span class="tag" onclick="event.stopPropagation();openRecipeById('${r.id}')">📖 Пошагово</span>
+        <a class="tag" href="https://www.youtube.com/results?search_query=${r.yt}" target="_blank" style="color:#ffd166" onclick="event.stopPropagation()">▶ YouTube</a>
+      </div></div>`;
+  });
+}
+
+// ── RECIPE MODAL ──────────────────────────────────
+const RECIPE_DATA={
+  breakfast:{
+    title:'Овсянка с яйцами',
+    ingredients:[
+      {n:'Овсяные хлопья',a:'80г'},
+      {n:'Молоко / вода',a:'200мл'},
+      {n:'Яйца',a:'2 шт'},
+      {n:'Соль',a:'щепотка'},
+    ],
+    steps:[
+      {n:'ШАГ 1 — Подготовка (2 мин)',t:'Вскипяти воду или молоко в кастрюле. Отмерь 80г овсянки. Параллельно поставь яйца вариться в отдельной кастрюле.'},
+      {n:'ШАГ 2 — Варка (5-7 мин)',t:'Всыпь овсянку в кипящую жидкость. Убавь огонь до среднего. Помешивай каждую минуту чтобы не пригорело. Вари до нужной густоты.'},
+      {n:'ШАГ 3 — Яйца (7-10 мин)',t:'Яйца вари вкрутую 10 минут с момента закипания. Или всмятку — 7 минут. После — сразу в холодную воду на 2 минуты, легко чистятся.'},
+      {n:'ШАГ 4 — Подача',t:'Переложи овсянку в тарелку. Почисти яйца, разрежь пополам. Посоли по вкусу. Можно добавить чайную ложку мёда в кашу для вкуса.'},
+    ],
+    kcal:'420 ккал · Б:24г · Ж:14г · У:48г',
+  },
+  lunch:{
+    title:'Куриное филе с гречкой',
+    ingredients:[
+      {n:'Куриное филе',a:'200г'},
+      {n:'Гречневая крупа',a:'80г (сухой)'},
+      {n:'Огурец',a:'1 шт'},
+      {n:'Оливковое масло',a:'1 ч.л.'},
+      {n:'Соль, перец',a:'по вкусу'},
+    ],
+    steps:[
+      {n:'ШАГ 1 — Подготовка (3 мин)',t:'Промой гречку под холодной водой. Филе промой и обсуши бумажным полотенцем. Нарежь на 2-3 части для равномерного приготовления.'},
+      {n:'ШАГ 2 — Гречка (20 мин)',t:'Залей гречку водой 1:2 (80г крупы = 160мл воды). Доведи до кипения, убавь огонь до минимума, накрой крышкой. Вари 15-18 минут. Не мешай.'},
+      {n:'ШАГ 3 — Курица (15 мин)',t:'Разогрей сковороду с маслом на среднем огне. Посоли и поперчи филе. Обжаривай по 5-7 минут с каждой стороны до золотистой корочки. Проверь готовность — сок должен быть прозрачным.'},
+      {n:'ШАГ 4 — Салат',t:'Нарежь огурец кружочками или кубиками. Посоли. Можно добавить пару капель лимонного сока.'},
+      {n:'ШАГ 5 — Подача',t:'Выложи гречку на тарелку. Нарежь курицу поперёк волокон. Рядом — салат. Приятного аппетита!'},
+    ],
+    kcal:'540 ккал · Б:46г · Ж:8г · У:62г',
+  },
+  dinner:{
+    title:'Творог с ягодами',
+    ingredients:[
+      {n:'Творог 5%',a:'200г'},
+      {n:'Ягоды (любые)',a:'100г'},
+      {n:'Орехи (грецкие)',a:'20г'},
+    ],
+    steps:[
+      {n:'ШАГ 1 (1 мин)',t:'Выложи творог в миску. Если зернистый — можно взбить блендером для нежной текстуры.'},
+      {n:'ШАГ 2 (1 мин)',t:'Сверху выложи ягоды — свежие или размороженные. Размороженные ягоды дают сок — получается натуральный соус.'},
+      {n:'ШАГ 3',t:'Добавь орехи. Можно слегка подробить. Никакого сахара — ягоды дают достаточно сладости.'},
+    ],
+    kcal:'320 ккал · Б:36г · Ж:10г · У:22г',
+  },
+  r1:{
+    title:'Куриное филе в духовке',
+    ingredients:[
+      {n:'Куриное филе',a:'400г'},
+      {n:'Чеснок',a:'3 зубчика'},
+      {n:'Паприка',a:'1 ч.л.'},
+      {n:'Оливковое масло',a:'1 ст.л.'},
+      {n:'Соль, перец',a:'по вкусу'},
+      {n:'Лимон',a:'½ шт'},
+    ],
+    steps:[
+      {n:'ШАГ 1 — Маринад (10 мин)',t:'Смешай в миске масло, выдавленный чеснок, паприку, сок лимона, соль и перец. Положи филе и перемешай. Оставь на 10-30 минут — чем дольше, тем вкуснее.'},
+      {n:'ШАГ 2 — Духовка (25-30 мин)',t:'Разогрей духовку до 200°C. Выложи филе в форму для запекания. Запекай 25-30 минут. Проверь готовность — сок при проколе должен быть прозрачным.'},
+      {n:'ШАГ 3 — Отдых (5 мин)',t:'Достань из духовки. Накрой фольгой на 5 минут — соки распределятся внутри и мясо будет сочнее.'},
+      {n:'ШАГ 4 — Подача',t:'Нарежь поперёк волокон ломтями по 1-1.5 см. Подавай с любым гарниром.'},
+    ],
+    kcal:'280 ккал · Б:52г · Ж:6г · У:2г',
+  },
+  r2:{
+    title:'Гречка с овощами',
+    ingredients:[
+      {n:'Гречневая крупа',a:'160г (сухой)'},
+      {n:'Морковь',a:'1 шт'},
+      {n:'Лук репчатый',a:'1 шт'},
+      {n:'Болгарский перец',a:'1 шт'},
+      {n:'Растительное масло',a:'1 ст.л.'},
+      {n:'Соль',a:'по вкусу'},
+    ],
+    steps:[
+      {n:'ШАГ 1 — Подготовка',t:'Промой гречку. Нарежь лук мелко, морковь натри на крупной тёрке, перец нарежь кубиками.'},
+      {n:'ШАГ 2 — Обжарка (7 мин)',t:'Разогрей сковороду с маслом. Обжарь лук до прозрачности (3 мин). Добавь морковь и перец, обжаривай ещё 4-5 минут помешивая.'},
+      {n:'ШАГ 3 — Гречка (20 мин)',t:'Добавь промытую гречку к овощам. Залей водой 1:2. Посоли. Накрой крышкой и вари на минимальном огне 18-20 минут.'},
+      {n:'ШАГ 4',t:'Перемешай, дай постоять 5 минут под крышкой. Подавай горячим.'},
+    ],
+    kcal:'240 ккал на порцию · Б:8г · Ж:4г · У:44г',
+  },
+  r3:{
+    title:'Омлет с зеленью',
+    ingredients:[
+      {n:'Яйца',a:'3 шт'},
+      {n:'Молоко',a:'3 ст.л.'},
+      {n:'Зелень (укроп/петрушка)',a:'пучок'},
+      {n:'Сливочное масло',a:'1 ч.л.'},
+      {n:'Соль',a:'щепотка'},
+    ],
+    steps:[
+      {n:'ШАГ 1 (2 мин)',t:'Разбей яйца в миску. Добавь молоко и щепотку соли. Взбей вилкой или венчиком до однородности — примерно 30-40 секунд.'},
+      {n:'ШАГ 2 (1 мин)',t:'Мелко нарежь зелень. Добавь в яичную смесь и перемешай.'},
+      {n:'ШАГ 3 (5-7 мин)',t:'Разогрей сковороду на среднем огне, растопи масло. Вылей яичную смесь. Накрой крышкой. Жарь 4-5 минут до готовности — верх должен схватиться.'},
+      {n:'ШАГ 4',t:'Сложи омлет пополам лопаткой. Подавай сразу — горячий вкуснее всего.'},
+    ],
+    kcal:'180 ккал · Б:16г · Ж:12г · У:3г',
+  },
+  r4:{
+    title:'Творожная запеканка',
+    ingredients:[
+      {n:'Творог 5%',a:'500г'},
+      {n:'Яйца',a:'2 шт'},
+      {n:'Манка или мука',a:'3 ст.л.'},
+      {n:'Сахар',a:'2 ст.л.'},
+      {n:'Ванилин',a:'щепотка'},
+      {n:'Изюм (по желанию)',a:'горсть'},
+    ],
+    steps:[
+      {n:'ШАГ 1 — Духовка',t:'Разогрей духовку до 180°C. Форму для запекания смажь маслом или застели пергаментом.'},
+      {n:'ШАГ 2 — Тесто (5 мин)',t:'Смешай творог, яйца, сахар, ванилин и манку в большой миске. Хорошо перемешай — можно блендером для однородности. Добавь изюм если хочешь.'},
+      {n:'ШАГ 3 — Выпечка (35-40 мин)',t:'Выложи массу в форму. Поверхность разровняй. Запекай при 180°C 35-40 минут до золотистой корочки.'},
+      {n:'ШАГ 4',t:'Дай остыть 10-15 минут прежде чем резать — горячая запеканка рассыпается. Подавай со сметаной или ягодами.'},
+    ],
+    kcal:'220 ккал на порцию · Б:20г · Ж:6г · У:20г',
+  },
+};
+
+function openMeal(id){openRecipeModal(id)}
+function openRecipeById(id){openRecipeModal(id)}
+function openRecipeModal(id){
+  const r=RECIPE_DATA[id];if(!r)return;
+  document.getElementById('modal-title').textContent=r.title;
+  let html=`<div class="sec">Ингредиенты</div><div class="card">`;
+  r.ingredients.forEach(i=>html+=`<div class="ing-row"><div class="ing-name">${i.n}</div><div class="ing-amt">${i.a}</div></div>`);
+  html+=`</div><div class="sec" style="margin-top:16px">Пошаговый рецепт</div>`;
+  r.steps.forEach(s=>html+=`<div class="step-block"><div class="step-n">${s.n}</div><div class="step-txt">${s.t}</div></div>`);
+  html+=`<div class="card" style="margin-top:16px;text-align:center"><div style="font-size:12px;color:var(--muted)">${r.kcal}</div></div>`;
+  document.getElementById('modal-body').innerHTML=html;
+  document.getElementById('recipe-modal').classList.add('open');
+  tg?.HapticFeedback?.impactOccurred('light');
+}
+function closeModal(){document.getElementById('recipe-modal').classList.remove('open')}
+
+// ── MEDIA LISTS ───────────────────────────────────
 const lists={movie:[],music:[],books:[]};
-const MOV=[{t:'Начало',y:'2010',g:'Триллер',w:'Захватывает с первых минут'},{t:'Интерстеллар',y:'2014',g:'Фантастика',w:'Для вдохновения'},{t:'Паразиты',y:'2019',g:'Артхаус',w:'Редкий бриллиант'}];
-const MUS=[{a:'Marconi Union',t:'Weightless',m:'Расслабление',yt:'Marconi+Union+Weightless'},{a:'Hans Zimmer',t:'Time',m:'Вдохновение',yt:'Hans+Zimmer+Time'},{a:'Lofi Hip Hop',t:'Study Beats',m:'Фокус',yt:'lofi+hip+hop+study'}];
-const BKS=[{t:'Атомные привычки',a:'Джеймс Клир',g:'Саморазвитие'},{t:'Думай медленно',a:'Канеман',g:'Психология'},{t:'Sapiens',a:'Харари',g:'Нон-фикшн'}];
+const MOV=[
+  {t:'Начало',y:'2010',g:'Триллер',w:'Захватывает с первых минут — идеально на вечер'},
+  {t:'Интерстеллар',y:'2014',g:'Фантастика',w:'Для вдохновения и масштабного мышления'},
+  {t:'Паразиты',y:'2019',g:'Артхаус',w:'Редкий бриллиант — неожиданный финал'},
+  {t:'Зелёная книга',y:'2018',g:'Драма',w:'Тёплое кино — поднимает настроение'},
+  {t:'Тихоня',y:'2023',g:'Аниме',w:'Неожиданно глубокая история'},
+];
+const MUS=[
+  {a:'Marconi Union',t:'Weightless',m:'Расслабление',yt:'Marconi+Union+Weightless'},
+  {a:'Hans Zimmer',t:'Time',m:'Вдохновение',yt:'Hans+Zimmer+Time+Inception'},
+  {a:'Lofi Hip Hop',t:'Study Beats',m:'Фокус',yt:'lofi+hip+hop+study+beats'},
+];
+const BKS=[
+  {t:'Атомные привычки',a:'Джеймс Клир',g:'Саморазвитие'},
+  {t:'Думай медленно решай быстро',a:'Д. Канеман',g:'Психология'},
+  {t:'Sapiens',a:'Юваль Харари',g:'Нон-фикшн'},
+  {t:'Богатый папа бедный папа',a:'Р. Кийосаки',g:'Финансы'},
+];
 
 function loadMedia(){
   const mr=document.getElementById('movie-recs');mr.innerHTML='';
-  MOV.forEach((m,i)=>{mr.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">🎬</div><div><div class="ctit">${m.t} (${m.y})</div><div class="cbod">${m.g} · ${m.w}</div></div></div><div class="tags"><span class="tag" onclick="addList('movie','${m.t}','${m.y}',this)">+ В список</span><a class="tag" href="https://www.kinopoisk.ru/search/?text=${encodeURIComponent(m.t)}" target="_blank" style="color:#ffd166;text-decoration:none">🎬 Кинопоиск</a></div></div>`});
+  MOV.forEach((m,i)=>{
+    mr.innerHTML+=`<div class="card al">
+      <div class="crow"><div class="cico">🎬</div><div><div class="ctit">${m.t} (${m.y})</div><div class="cbod">${m.g} · ${m.w}</div></div></div>
+      <div class="tags">
+        <span class="tag" onclick="addList('movie','${m.t}','${m.y}',this)">+ В список</span>
+        <a class="tag" href="https://www.kinopoisk.ru/search/?text=${encodeURIComponent(m.t)}" target="_blank" style="color:#ffd166">🎬 Кинопоиск</a>
+      </div></div>`;
+  });
   const mur=document.getElementById('music-recs');mur.innerHTML='';
-  MUS.forEach(t=>{mur.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">🎵</div><div><div class="ctit">${t.a} — ${t.t}</div><div class="cbod">${t.m}</div></div></div><div class="tags"><span class="tag" onclick="addList('music','${t.a} — ${t.t}','',this)">+ Сохранить</span><a class="tag" href="https://www.youtube.com/results?search_query=${t.yt}" target="_blank" style="color:#ffd166;text-decoration:none">▶ YouTube</a><a class="tag" href="https://music.yandex.ru/search?text=${encodeURIComponent(t.t)}" target="_blank" style="color:#ff6b9d;text-decoration:none">🎵 Яндекс</a></div></div>`});
+  MUS.forEach(t=>{
+    mur.innerHTML+=`<div class="card al">
+      <div class="crow"><div class="cico">🎵</div><div><div class="ctit">${t.a} — ${t.t}</div><div class="cbod">${t.m}</div></div></div>
+      <div class="tags">
+        <span class="tag" onclick="addList('music','${t.a} — ${t.t}','',this)">+ Сохранить</span>
+        <a class="tag" href="https://www.youtube.com/results?search_query=${t.yt}" target="_blank" style="color:#ffd166">▶ YouTube</a>
+        <a class="tag" href="https://music.yandex.ru/search?text=${encodeURIComponent(t.t)}" target="_blank" style="color:#ff6b9d">🎵 Яндекс</a>
+        <a class="tag" href="https://vk.com/search?c[q]=${encodeURIComponent(t.t)}&c[section]=audio" target="_blank" style="color:#5b8fff">VK</a>
+      </div></div>`;
+  });
   const br=document.getElementById('books-recs');br.innerHTML='';
-  BKS.forEach(b=>{br.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">📖</div><div><div class="ctit">${b.t}</div><div class="cbod">${b.a} · ${b.g}</div></div></div><div class="tags"><span class="tag" onclick="addList('books','${b.t}','${b.a}',this)">+ В список</span><a class="tag" href="https://www.litres.ru/search/?q=${encodeURIComponent(b.t)}" target="_blank" style="color:#ffd166;text-decoration:none">📖 ЛитРес</a><a class="tag" href="https://bookmate.com/search?q=${encodeURIComponent(b.t)}" target="_blank" style="color:#ff6b9d;text-decoration:none">📗 Букмейт</a></div></div>`});
+  BKS.forEach(b=>{
+    br.innerHTML+=`<div class="card al">
+      <div class="crow"><div class="cico">📖</div><div><div class="ctit">${b.t}</div><div class="cbod">${b.a} · ${b.g}</div></div></div>
+      <div class="tags">
+        <span class="tag" onclick="addList('books','${b.t}','${b.a}',this)">+ В список</span>
+        <a class="tag" href="https://www.litres.ru/search/?q=${encodeURIComponent(b.t)}" target="_blank" style="color:#ffd166">📖 ЛитРес</a>
+        <a class="tag" href="https://bookmate.com/search?q=${encodeURIComponent(b.t)}" target="_blank" style="color:#ff6b9d">📗 Букмейт</a>
+        <a class="tag" href="https://books.yandex.ru/?q=${encodeURIComponent(b.t)}" target="_blank" style="color:#ffa502">📕 Яндекс</a>
+      </div></div>`;
+  });
 }
 
 function addList(type,title,sub,el){
   if(lists[type].find(x=>x.t===title)){toast('Уже в списке');return;}
   lists[type].push({t:title,s:sub});el.textContent='✓ Добавлено';el.style.color='#52e0a0';
-  tg?.HapticFeedback?.impactOccurred('medium');toast('Добавлено: '+title.slice(0,25));
-  renderLists();
+  tg?.HapticFeedback?.impactOccurred('medium');toast('Добавлено: '+title.slice(0,25));renderLists();
 }
+function removeList(type,idx){lists[type].splice(idx,1);renderLists();tg?.HapticFeedback?.impactOccurred('light')}
 
 function renderLists(){
   document.getElementById('wl-count').textContent=lists.movie.length+' в списке';
-  ['movie','music','books'].forEach(type=>{
-    const ids={movie:'movie-wl',music:'music-saved',books:'books-rl'};
-    const el=document.getElementById(ids[type]);
-    if(!lists[type].length){el.innerHTML='<div class="empty"><div class="empty-ico">📝</div><div class="empty-txt">Пока пусто</div></div>';return;}
-    el.innerHTML='<div class="card">'+lists[type].map((m,i)=>`<div class="wli"><div class="wln">${i+1}</div><div class="wlb"><div class="wlt">${m.t}</div>${m.s?`<div class="wls">${m.s}</div>`:''}</div><div class="wld" onclick="rmList('${type}',${i})">×</div></div>`).join('')+'</div>';
+  const defs={movie:'movie-wl',music:'music-saved',books:'books-rl'};
+  Object.entries(defs).forEach(([type,eid])=>{
+    const el=document.getElementById(eid);
+    if(!lists[type].length){
+      el.innerHTML='<div class="empty"><div class="empty-ico">📝</div><div class="empty-txt">Пока пусто — добавляй из рекомендаций</div></div>';return;
+    }
+    el.innerHTML='<div class="card">'+lists[type].map((m,i)=>
+      `<div class="wli"><div class="wln">${i+1}</div><div class="wlb"><div class="wlt">${m.t}</div>${m.s?`<div class="wls">${m.s}</div>`:''}</div><div class="wld" onclick="removeList('${type}',${i})">×</div></div>`
+    ).join('')+'</div>';
   });
 }
-function rmList(type,idx){lists[type].splice(idx,1);renderLists();tg?.HapticFeedback?.impactOccurred('light')}
 
-// FINANCE
-const txns=[{c:'🛒 Продукты',a:2400,d:'exp'},{c:'🚗 Бензин',a:1800,d:'exp'},{c:'💼 Зарплата',a:45000,d:'inc'},{c:'☕ Кафе',a:890,d:'exp'}];
+// ── FINANCE ───────────────────────────────────────
+const txns=[
+  {c:'💼 Зарплата',a:45000,d:'inc'},
+  {c:'🛒 Продукты',a:2400,d:'exp'},
+  {c:'🚗 Бензин',a:1800,d:'exp'},
+  {c:'☕ Кафе',a:890,d:'exp'},
+];
 function loadFin(){
   let inc=0,exp=0;txns.forEach(t=>t.d==='inc'?inc+=t.a:exp+=t.a);
   const bal=inc-exp;
@@ -403,16 +745,32 @@ function loadFin(){
   document.getElementById('f-exp').textContent=exp.toLocaleString('ru')+' ₽';
   document.getElementById('f-bal').textContent=(bal>0?'+':'')+bal.toLocaleString('ru')+' ₽';
   document.getElementById('f-bal').style.color=bal>=0?'#2ed573':'#ff4757';
-  document.getElementById('fin-balance').textContent=(bal>0?'+':'')+bal.toLocaleString('ru')+' ₽';
-  document.getElementById('fin-balance').style.color=bal>=0?'#2ed573':'#ff4757';
+  document.getElementById('fin-bal-badge').textContent=(bal>0?'+':'')+bal.toLocaleString('ru')+' ₽';
+  document.getElementById('fin-bal-badge').style.color=bal>=0?'#2ed573':'#ff4757';
   const cats={};txns.filter(t=>t.d==='exp').forEach(t=>cats[t.c]=(cats[t.c]||0)+t.a);
   const ce=document.getElementById('fin-cats');ce.innerHTML='';
-  Object.entries(cats).sort((a,b)=>b[1]-a[1]).forEach(([c,a])=>{const p=Math.round(a/exp*100);ce.innerHTML+=`<div class="card al" style="margin-bottom:8px"><div class="crow"><div style="flex:1;font-size:13px;font-weight:600;color:var(--text)">${c}</div><div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700">${a.toLocaleString('ru')} ₽</div></div><div class="pbar"><div class="pfill" style="width:${p}%;background:#ffa502"></div></div></div>`});
+  Object.entries(cats).sort((a,b)=>b[1]-a[1]).forEach(([c,a])=>{
+    const p=Math.round(a/exp*100);
+    ce.innerHTML+=`<div class="card al" style="margin-bottom:8px">
+      <div class="crow" style="margin-bottom:6px"><div style="flex:1;font-size:12px;font-weight:600">${c}</div><div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700">${a.toLocaleString('ru')} ₽</div></div>
+      <div class="pbar"><div class="pfill" style="width:${p}%;background:#ffa502"></div></div></div>`;
+  });
   const gl=document.getElementById('fin-goals-list');gl.innerHTML='';
-  const goals=[{title:'Отпуск в Сочи',e:'✈️',target:80000,current:34000,dl:'01.07.2026'}];
-  goals.forEach(g=>{const p=Math.round(g.current/g.target*100);gl.innerHTML+=`<div class="card al"><div class="crow"><div class="cico">${g.e}</div><div><div class="ctit">${g.title}</div><div class="cbod">${g.current.toLocaleString('ru')} / ${g.target.toLocaleString('ru')} ₽</div></div></div><div class="prow"><span>${p}%</span><span>до ${g.dl}</span></div><div class="pbar"><div class="pfill" style="width:${p}%;background:#ffa502"></div></div></div>`});
+  [{title:'Отпуск в Сочи',e:'✈️',target:80000,current:34000,dl:'01.07.2026'}].forEach(g=>{
+    const p=Math.round(g.current/g.target*100);
+    gl.innerHTML+=`<div class="card al">
+      <div class="crow"><div class="cico">${g.e}</div><div><div class="ctit">${g.title}</div><div class="cbod">${g.current.toLocaleString('ru')} / ${g.target.toLocaleString('ru')} ₽ · до ${g.dl}</div></div></div>
+      <div class="prow"><span>${p}%</span><span>осталось ${(g.target-g.current).toLocaleString('ru')} ₽</span></div>
+      <div class="pbar"><div class="pfill" style="width:${p}%;background:#ffa502"></div></div></div>`;
+  });
   const fh=document.getElementById('fin-hist');fh.innerHTML='';
-  txns.slice().reverse().forEach(t=>{fh.innerHTML+=`<div class="card" style="margin-bottom:8px"><div class="crow"><div style="flex:1;font-size:13px;font-weight:600">${t.c}</div><div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:${t.d==='inc'?'#2ed573':'#ff4757'}">${t.d==='inc'?'+':'-'}${t.a.toLocaleString('ru')} ₽</div></div></div>`});
+  txns.slice().reverse().forEach(t=>{
+    fh.innerHTML+=`<div class="card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center">
+        <div style="flex:1;font-size:12px;font-weight:600">${t.c}</div>
+        <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:${t.d==='inc'?'#2ed573':'#ff4757'}">${t.d==='inc'?'+':'-'}${t.a.toLocaleString('ru')} ₽</div>
+      </div></div>`;
+  });
 }
 function addExp(label){
   const amt=prompt('Сумма ('+label+'):');if(!amt||isNaN(+amt))return;
@@ -421,19 +779,69 @@ function addExp(label){
   tg?.HapticFeedback?.impactOccurred('medium');
 }
 
-// ACTIONS
+// ── CHAT ──────────────────────────────────────────
+const BOT_REPLIES=[
+  ['фильм','посоветуй фильм','смотреть'],
+  ['музык','трек','слушать','включить'],
+  ['рецепт','приготовить','блюдо','завтрак','обед','ужин'],
+  ['книг','читать','почитать'],
+  ['экономить','бюджет','деньги','копить'],
+  ['тренировк','спорт','качаться','похудеть'],
+];
+const BOT_ANSWERS=[
+  '🎬 Конечно! Открой вкладку **Кино** снизу — там подобраны 5 рекомендаций по жанру. Или нажми кнопку "Новые рекомендации" чтобы бот подобрал под настроение.',
+  '🎵 Открой вкладку **Музыка** — там рекомендации под разное настроение. Яндекс Музыка, VK и YouTube прямо оттуда.',
+  '🍳 В разделе **Диета → Рецепты** есть пошаговые рецепты с ингредиентами. Нажми 📖 Пошагово и увидишь всё по шагам.',
+  '📚 Вкладка **Книги** — там рекомендации с ссылками на ЛитРес и Букмейт. Можно добавить в список "Читать позже".',
+  '💰 В разделе **Финансы → Расходы** отмечай траты по категориям. Бот покажет где перерасход и даст советы по экономии.',
+  '🏋️ Напиши /plan в боте — он составит план тренировки под твой LifeMode. Или добавь задачу в **Диета → Задачи**.',
+];
+
+function sendMsg(){
+  const inp=document.getElementById('chat-in');
+  const text=inp.value.trim();if(!text)return;
+  addMsg(text,true);inp.value='';
+  setTimeout(()=>replyToMsg(text),600);
+}
+function sendChip(text){addMsg(text,true);setTimeout(()=>replyToMsg(text),600)}
+
+function addMsg(text,isUser){
+  const msgs=document.getElementById('chat-msgs');
+  const d=document.createElement('div');
+  d.className='msg '+(isUser?'msg-user':'msg-bot');
+  const now=new Date();
+  const time=`${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+  d.innerHTML=text+'<div class="msg-time">'+time+'</div>';
+  msgs.appendChild(d);
+  msgs.scrollTop=msgs.scrollHeight;
+  tg?.HapticFeedback?.impactOccurred('light');
+}
+
+function replyToMsg(text){
+  const t=text.toLowerCase();
+  let reply='Понял! Открой нужный раздел снизу или напиши боту в Telegram — он ответит подробнее 🤖';
+  for(let i=0;i<BOT_REPLIES.length;i++){
+    if(BOT_REPLIES[i].some(kw=>t.includes(kw))){reply=BOT_ANSWERS[i];break;}
+  }
+  addMsg(reply,false);
+}
+
+// ── ACTIONS ───────────────────────────────────────
 function tgAction(cmd){
   tg?.HapticFeedback?.impactOccurred('medium');
   const m={plan:'/plan',recipes:'/recipes',shopping:'/shopping',movie:'/movie',music:'/music',books:'/books',finance:'/finance'};
   if(tg){tg.sendData(JSON.stringify({action:cmd}));tg.close();}
-  else toast('Открой в Telegram');
+  else toast('Открой в Telegram для этого действия');
 }
 
-// TOAST
-function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>el.classList.remove('show'),2200)}
+// ── TOAST ─────────────────────────────────────────
+function toast(msg){
+  const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');
+  clearTimeout(window._tt);window._tt=setTimeout(()=>el.classList.remove('show'),2200);
+}
 
-// INIT
-loadShop();loadMedia();renderLists();loadFin();
+// ── INIT ──────────────────────────────────────────
+loadShop();loadTasks();loadMedia();renderLists();loadFin();
 const urlTab=new URLSearchParams(location.search).get('tab');
 if(urlTab)showScreen(urlTab);
 </script>
