@@ -42,6 +42,14 @@ async def cmd_start(message: types.Message):
         greeting = f"Привет, {name}! Я *Wingman* 🌿"
         subtitle = "Твой личный помощник по питанию, финансам и досугу.\nВыбери с чего начать:"
 
+    # Сначала отправляем Reply-клавиатуру — она закрепится внизу навсегда
+    from bot.keyboard_manager import get_main_kb
+    await message.answer(
+        "⌨️",  # незаметный символ чтобы отправить клавиатуру
+        reply_markup=get_main_kb(user_id)
+    )
+
+    # Потом основное сообщение с Inline-меню
     await message.answer(
         f"{greeting}\n\n{subtitle}",
         parse_mode="Markdown",

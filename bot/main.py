@@ -75,6 +75,11 @@ async def main():
     ])
 
     await bot.delete_webhook(drop_pending_updates=True)
+
+    # Ждём секунду чтобы старый инстанс успел завершиться
+    import asyncio as _asyncio
+    await _asyncio.sleep(2)
+
     try:
         await dp.start_polling(bot)
     finally:

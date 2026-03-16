@@ -21,7 +21,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Фронтенд отдаётся статикой
+# Фронтенд отдаётся статикой (создаём папку если нет — Railway)
+import pathlib
+_frontend = pathlib.Path("frontend")
+if not _frontend.exists():
+    _frontend.mkdir(parents=True, exist_ok=True)
+    (_frontend / "index.html").write_text("<html><body><h1>Wingman API</h1></body></html>")
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 
