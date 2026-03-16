@@ -347,6 +347,24 @@ async def s_meal_plan(cb: types.CallbackQuery, state: FSMContext):
     await cb.answer()
 
 
+# ── ШАГ 17: ПСИХОТИП ───────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("psycho_"), Survey.psychotype)
+async def s_psychotype(cb: types.CallbackQuery, state: FSMContext):
+    await state.update_data(psychotype=cb.data.split("_", 1)[1])
+    await state.set_state(Survey.stress_level)
+    await ask_edit(cb, 18,
+        "🧠 *Блок Г — Психология*\n\n"
+        "Как часто ты испытываешь стресс?",
+        kb(
+            ("😌 Редко",     "stress_low"),
+            ("😐 Иногда",    "stress_mid"),
+            ("😟 Часто",     "stress_high"),
+            ("🤯 Постоянно", "stress_always"),
+        )
+    )
+
+
 # ── ШАГ 10: РАСПИСАНИЕ ─────────────────────────────────────────────────────
 
 @router.message(Survey.schedule)
@@ -434,6 +452,204 @@ async def s_city(m: types.Message, state: FSMContext):
             ("⚡ Больше энергии", "goal_energy"),
             ("🧘 Детокс / очищение", "goal_detox"),
         )
+    )
+
+
+# ── ШАГ 18: УРОВЕНЬ СТРЕССА ────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("stress_"), Survey.stress_level)
+async def s_stress_level(cb: types.CallbackQuery, state: FSMContext):
+    sl = {"stress_low":"Редко","stress_mid":"Иногда",
+          "stress_high":"Часто","stress_always":"Постоянно"}
+    await state.update_data(stress_level=sl[cb.data])
+    await state.set_state(Survey.stress_coping)
+    await ask_edit(cb, 19,
+        "Когда всё идёт не так — что помогает прийти в себя?",
+        kb(
+            ("🏃 Двигаюсь / гуляю",    "cope_sport"),
+            ("🍕 Ем что-нибудь вкусное","cope_food"),
+            ("💬 Общаюсь с людьми",     "cope_social"),
+            ("🎧 Музыка / фильмы",      "cope_media"),
+            ("😴 Сплю или отдыхаю",     "cope_sleep"),
+            ("🌀 Само проходит",        "cope_alone"),
+        )
+    )
+
+
+# ── ШАГ 19: КАК СПРАВЛЯЕШЬСЯ ───────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("cope_"), Survey.stress_coping)
+async def s_stress_coping(cb: types.CallbackQuery, state: FSMContext):
+    cope = {"cope_sport":"Спорт","cope_food":"Еда","cope_social":"Общение",
+            "cope_media":"Медиа","cope_sleep":"Сон","cope_alone":"Само проходит"}
+    await state.update_data(stress_coping=cope[cb.data])
+    await state.set_state(Survey.food_meaning)
+    await ask_edit(cb, 20,
+        "Еда для тебя — это в первую очередь что?",
+        kb(
+            ("⚡ Топливо — просто энергия", "fm_fuel"),
+            ("🎉 Удовольствие и радость",   "fm_joy"),
+            ("🏆 Награда за усилия",        "fm_reward"),
+            ("🤗 Утешение когда плохо",     "fm_comfort"),
+            ("👥 Способ общаться",          "fm_social"),
+        )
+    )
+
+
+# ── ШАГ 20: СМЫСЛ ЕДЫ ──────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("fm_"), Survey.food_meaning)
+async def s_food_meaning(cb: types.CallbackQuery, state: FSMContext):
+    fm = {"fm_fuel":"Топливо","fm_joy":"Удовольствие","fm_reward":"Награда",
+          "fm_comfort":"Утешение","fm_social":"Общение"}
+    await state.update_data(food_meaning=fm[cb.data])
+    await state.set_state(Survey.self_attitude)
+    await ask_edit(cb, 21,
+        "Если сорвался с режима — как относишься к этому?",
+        kb(
+            ("😤 Злюсь на себя",                 "sa_angry"),
+            ("😟 Расстраиваюсь, но иду дальше",  "sa_sad"),
+            ("🤷 Нормально, бывает",             "sa_ok"),
+            ("😄 Не парюсь",                     "sa_cool"),
+        )
+    )
+
+
+# ── ШАГ 21: ОТНОШЕНИЕ К СРЫВУ ──────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("sa_"), Survey.self_attitude)
+async def s_self_attitude(cb: types.CallbackQuery, state: FSMContext):
+    sa = {"sa_angry":"Злюсь","sa_sad":"Расстраиваюсь","sa_ok":"Нормально","sa_cool":"Не парюсь"}
+    await state.update_data(self_attitude=sa[cb.data])
+    await state.set_state(Survey.fin_income)
+    await ask_edit(cb, 22,
+        "💰 *Блок Д — Финансы*\n\nПримерный доход в месяц?",
+        kb(
+            ("До 30 000 ₽",       "inc_low"),
+            ("30–60 000 ₽",       "inc_mid"),
+            ("60–100 000 ₽",      "inc_high"),
+            ("Больше 100 000 ₽",  "inc_top"),
+            ("Не скажу",          "inc_skip"),
+        )
+    )
+
+
+# ── ШАГ 22: ДОХОД ──────────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("inc_"), Survey.fin_income)
+async def s_fin_income(cb: types.CallbackQuery, state: FSMContext):
+    inc = {"inc_low":"< 30к","inc_mid":"30-60к","inc_high":"60-100к",
+           "inc_top":"> 100к","inc_skip":"не указан"}
+    await state.update_data(fin_income=inc[cb.data])
+    await state.set_state(Survey.fin_expenses)
+    await ask_edit(cb, 23,
+        "Сколько тратишь в месяц (кроме еды)?",
+        kb(
+            ("До 15 000 ₽",      "exp_low"),
+            ("15–30 000 ₽",      "exp_mid"),
+            ("30–60 000 ₽",      "exp_high"),
+            ("Больше 60 000 ₽",  "exp_top"),
+            ("Не знаю",          "exp_skip"),
+        )
+    )
+
+
+# ── ШАГ 23: РАСХОДЫ ────────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("exp_"), Survey.fin_expenses)
+async def s_fin_expenses(cb: types.CallbackQuery, state: FSMContext):
+    exp = {"exp_low":"< 15к","exp_mid":"15-30к","exp_high":"30-60к",
+           "exp_top":"> 60к","exp_skip":"не знаю"}
+    await state.update_data(fin_expenses=exp[cb.data])
+    await state.set_state(Survey.fin_goal)
+    await ask_edit(cb, 24,
+        "Есть финансовая цель на ближайший год?",
+        kb(
+            ("✈️ Отпуск / путешествие",  "fg_travel"),
+            ("🚗 Машина / ремонт",       "fg_car"),
+            ("📱 Гаджет / покупка",      "fg_gadget"),
+            ("🆘 Подушка безопасности",  "fg_safety"),
+            ("🎓 Обучение / курсы",      "fg_edu"),
+            ("Нет цели",                "fg_none"),
+        )
+    )
+
+
+# ── ШАГ 24: ФИНАНСОВАЯ ЦЕЛЬ ────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("fg_"), Survey.fin_goal)
+async def s_fin_goal(cb: types.CallbackQuery, state: FSMContext):
+    fg = {"fg_travel":"Отпуск","fg_car":"Машина","fg_gadget":"Гаджет",
+          "fg_safety":"Подушка","fg_edu":"Обучение","fg_none":"Нет"}
+    await state.update_data(fin_goal=fg[cb.data])
+    await state.set_state(Survey.content_genres)
+    await ask_edit(cb, 25,
+        "🎬 *Блок Е — Контент*\n\nЛюбимые жанры кино?",
+        kb(
+            ("😂 Комедии",         "cg_comedy"),
+            ("🎭 Драмы",           "cg_drama"),
+            ("🚀 Фантастика",      "cg_scifi"),
+            ("🕵️ Детективы",      "cg_detective"),
+            ("😱 Триллеры",        "cg_thriller"),
+            ("🌍 Документальное",  "cg_doc"),
+        )
+    )
+
+
+# ── ШАГ 25: ЖАНРЫ КИНО ─────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("cg_"), Survey.content_genres)
+async def s_content_genres(cb: types.CallbackQuery, state: FSMContext):
+    cg = {"cg_comedy":"Комедии","cg_drama":"Драмы","cg_scifi":"Фантастика",
+          "cg_detective":"Детективы","cg_thriller":"Триллеры","cg_doc":"Документальное"}
+    await state.update_data(content_genres=cg.get(cb.data,"любые"))
+    await state.set_state(Survey.music_taste)
+    await ask_edit(cb, 26,
+        "Какую музыку слушаешь?",
+        kb(
+            ("🎸 Рок / металл",    "mt_rock"),
+            ("🎵 Поп / электро",   "mt_pop"),
+            ("🎷 Джаз / блюз",     "mt_jazz"),
+            ("🎤 Хип-хоп / рэп",   "mt_hiphop"),
+            ("🎻 Классика",        "mt_classic"),
+            ("🌊 Lo-fi / ambient", "mt_lofi"),
+        )
+    )
+
+
+# ── ШАГ 26: МУЗЫКА ─────────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("mt_"), Survey.music_taste)
+async def s_music_taste(cb: types.CallbackQuery, state: FSMContext):
+    mt = {"mt_rock":"Рок","mt_pop":"Поп","mt_jazz":"Джаз",
+          "mt_hiphop":"Хип-хоп","mt_classic":"Классика","mt_lofi":"Lo-fi"}
+    await state.update_data(music_taste=mt.get(cb.data,"разная"))
+    await state.set_state(Survey.book_genres)
+    await ask_edit(cb, 27,
+        "Читаешь ли книги? Если да — какие?",
+        kb(
+            ("📚 Нон-фикшн / саморазвитие", "bg_nonfic"),
+            ("🚀 Фантастика",               "bg_scifi"),
+            ("🕵️ Детективы",               "bg_det"),
+            ("💼 Бизнес / психология",      "bg_biz"),
+            ("📖 Классика",                 "bg_classic"),
+            ("🚫 Не читаю",                 "bg_none"),
+        )
+    )
+
+
+# ── ШАГ 27: КНИГИ ──────────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("bg_"), Survey.book_genres)
+async def s_book_genres(cb: types.CallbackQuery, state: FSMContext):
+    bg = {"bg_nonfic":"Нон-фикшн","bg_scifi":"Фантастика","bg_det":"Детективы",
+          "bg_biz":"Бизнес","bg_classic":"Классика","bg_none":"Не читаю"}
+    await state.update_data(book_genres=bg.get(cb.data,"любые"))
+    await state.set_state(Survey.hobby)
+    await ask_edit(cb, 28,
+        "🌍 *Блок Ж — Образ жизни*\n\n"
+        "Расскажи о себе — хобби, работа, чем занимаешься?\n"
+        "_Это поможет сделать план ближе к реальности_"
     )
 
 
